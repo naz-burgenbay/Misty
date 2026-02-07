@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Misty.Core/Misty.Core.csproj" />
+  <Project Path="Misty.Web/Misty.Web.csproj" />
+</Solution>

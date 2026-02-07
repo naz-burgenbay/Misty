@@ -1,0 +1,85 @@
+# Build results
+**/bin/
+**/obj/
+**/out/
+
+# Visual Studio
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+**/serviceDependencies.local.json
+**/serviceDependencies.local.json.user
+
+# Build Results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Rider
+.idea/
+*.sln.iml
+
+# User-specific sensitive files
+appsettings.Development.json
+appsettings.Staging.json
+appsettings.Production.json
+appsettings.local.json
+appsettings.*.local.json
+appsettings.*.override.json
+*.db
+*.db-shm
+*.db-wal
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+
+# Logs
+*.log
+*.logs
+npm-debug.log*
+
+# Deployment artifacts
+publish/
+*.zip
+*.PublishSettings
+*.pubxml
+*.pubxml.user
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+
+# misc
+docs/
