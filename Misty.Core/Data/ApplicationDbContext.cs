@@ -145,9 +145,16 @@ namespace Misty.Core.Data
                 e.Property(m => m.ImageUrl).HasMaxLength(2048);
 
                 // Fast chronological message retrieval within a channel
-                e.HasIndex(m => new { m.ChannelId, m.SentAt });
+                e.HasIndex(m => new { m.ChannelId, m.SentAt })
+                    .HasFilter("[ChannelId] IS NOT NULL");
                 // Fast chronological message retrieval within a conversation
-                e.HasIndex(m => new { m.ConversationId, m.SentAt });
+                e.HasIndex(m => new { m.ConversationId, m.SentAt })
+                    .HasFilter("[ConversationId] IS NOT NULL");
+                // Fast lookup of all messages by a given user
+                e.HasIndex(m => m.AuthorUserId);
+                // Fast lookup of replies to a message for thread loading
+                e.HasIndex(m => m.ParentMessageId)
+                    .HasFilter("[ParentMessageId] IS NOT NULL");
 
                 // Exactly one of ChannelId or ConversationId must be set (mutually exclusive)
                 e.ToTable(t => t.HasCheckConstraint(
