@@ -1,13 +1,7 @@
+using Misty.Core.Enums;
+
 namespace Misty.Core.Data.Entities
 {
-    public enum ModerationType
-    {
-        Mute,
-        Ban,
-        SoftBan,
-        Warning
-    }
-
     public class ModerationAction
     {
         public Guid ModerationActionId { get; set; }
