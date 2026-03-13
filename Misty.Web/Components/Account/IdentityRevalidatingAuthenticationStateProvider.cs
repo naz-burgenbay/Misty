@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Misty.Core.Data;
+using Misty.Core.Data.Entities;
 
 namespace Misty.Web.Components.Account
 {

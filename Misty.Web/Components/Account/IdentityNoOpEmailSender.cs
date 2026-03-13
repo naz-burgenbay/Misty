@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Misty.Core.Data;
+using Misty.Core.Data.Entities;
 
 namespace Misty.Web.Components.Account
 {

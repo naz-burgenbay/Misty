@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
+using Misty.Core.Data.Entities;
 using Misty.Web.Components.Account.Pages;
 using Misty.Web.Components.Account.Pages.Manage;
 using Misty.Core.Data;
