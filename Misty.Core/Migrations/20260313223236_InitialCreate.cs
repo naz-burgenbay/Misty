@@ -26,37 +26,6 @@ namespace Misty.Core.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetUsers",
-                columns: table => new
-                {
-                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    DisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Bio = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    AvatarUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
-                    NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
-                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
-                    NormalizedEmail = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
-                    EmailConfirmed = table.Column<bool>(type: "bit", nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    SecurityStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PhoneNumberConfirmed = table.Column<bool>(type: "bit", nullable: false),
-                    TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    LockoutEnd = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
-                    LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_AspNetUsers", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Conversations",
                 columns: table => new
                 {
@@ -103,12 +72,6 @@ namespace Misty.Core.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUserClaims", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_AspNetUserClaims_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -123,12 +86,6 @@ namespace Misty.Core.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUserLogins", x => new { x.LoginProvider, x.ProviderKey });
-                    table.ForeignKey(
-                        name: "FK_AspNetUserLogins_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -147,12 +104,36 @@ namespace Misty.Core.Migrations
                         principalTable: "AspNetRoles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_AspNetUserRoles_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AspNetUsers",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    DisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Bio = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    AvatarAttachmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedEmail = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    EmailConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SecurityStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumberConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    LockoutEnd = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
+                    LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -176,63 +157,15 @@ namespace Misty.Core.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Channels",
-                columns: table => new
-                {
-                    ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    IconUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    IsActive = table.Column<bool>(type: "bit", nullable: false),
-                    IsPrivate = table.Column<bool>(type: "bit", nullable: false),
-                    InviteCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
-                    IsAiAssistantEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Channels", x => x.ChannelId);
-                    table.ForeignKey(
-                        name: "FK_Channels_AspNetUsers_CreatedByUserId",
-                        column: x => x.CreatedByUserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "UserBlocks",
-                columns: table => new
-                {
-                    UserBlockId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    BlockingUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    BlockedUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    BlockedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserBlocks", x => x.UserBlockId);
-                    table.ForeignKey(
-                        name: "FK_UserBlocks_AspNetUsers_BlockedUserId",
-                        column: x => x.BlockedUserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_UserBlocks_AspNetUsers_BlockingUserId",
-                        column: x => x.BlockingUserId,
-                        principalTable: "AspNetUsers",
-                        principalColumn: "Id");
-                });
-
-            migrationBuilder.CreateTable(
                 name: "ConversationParticipants",
                 columns: table => new
                 {
                     ConversationParticipantId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     ConversationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    JoinedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    UserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    JoinedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    HiddenAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastReadAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -251,13 +184,136 @@ namespace Misty.Core.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "UserBlocks",
+                columns: table => new
+                {
+                    UserBlockId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BlockingUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    BlockedUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    BlockedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserBlocks", x => x.UserBlockId);
+                    table.CheckConstraint("CK_UserBlock_NoSelfBlock", "[BlockingUserId] <> [BlockedUserId]");
+                    table.ForeignKey(
+                        name: "FK_UserBlocks_AspNetUsers_BlockedUserId",
+                        column: x => x.BlockedUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_UserBlocks_AspNetUsers_BlockingUserId",
+                        column: x => x.BlockingUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Attachments",
+                columns: table => new
+                {
+                    AttachmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UploadedByUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: true),
+                    MessageId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Purpose = table.Column<int>(type: "int", nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    StoragePath = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: false),
+                    ContentType = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: false),
+                    FileSizeBytes = table.Column<long>(type: "bigint", nullable: false),
+                    UploadedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Attachments", x => x.AttachmentId);
+                    table.ForeignKey(
+                        name: "FK_Attachments_AspNetUsers_UploadedByUserId",
+                        column: x => x.UploadedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Channels",
+                columns: table => new
+                {
+                    ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IconAttachmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    IsPrivate = table.Column<bool>(type: "bit", nullable: false),
+                    InviteCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    IsAiAssistantEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedByUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    OwnerUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    DefaultPermissions = table.Column<long>(type: "bigint", nullable: false),
+                    MemberCount = table.Column<int>(type: "int", nullable: false),
+                    LastMessageAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Channels", x => x.ChannelId);
+                    table.ForeignKey(
+                        name: "FK_Channels_AspNetUsers_CreatedByUserId",
+                        column: x => x.CreatedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Channels_AspNetUsers_OwnerUserId",
+                        column: x => x.OwnerUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_Channels_Attachments_IconAttachmentId",
+                        column: x => x.IconAttachmentId,
+                        principalTable: "Attachments",
+                        principalColumn: "AttachmentId",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ChannelAuditLogs",
+                columns: table => new
+                {
+                    ChannelAuditLogId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ActorUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    Action = table.Column<int>(type: "int", nullable: false),
+                    TargetType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    TargetId = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Details = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: true),
+                    ActorDisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    IpAddress = table.Column<string>(type: "nvarchar(45)", maxLength: 45, nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChannelAuditLogs", x => x.ChannelAuditLogId);
+                    table.ForeignKey(
+                        name: "FK_ChannelAuditLogs_AspNetUsers_ActorUserId",
+                        column: x => x.ActorUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_ChannelAuditLogs_Channels_ChannelId",
+                        column: x => x.ChannelId,
+                        principalTable: "Channels",
+                        principalColumn: "ChannelId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ChannelMembers",
                 columns: table => new
                 {
                     ChannelMemberId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
                     ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    JoinedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    JoinedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    LeftAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastReadAt = table.Column<DateTime>(type: "datetime2", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -283,11 +339,10 @@ namespace Misty.Core.Migrations
                     ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     IsSystemRole = table.Column<bool>(type: "bit", nullable: false),
-                    CanDeleteMessages = table.Column<bool>(type: "bit", nullable: false),
-                    CanMuteUsers = table.Column<bool>(type: "bit", nullable: false),
-                    CanBanUsers = table.Column<bool>(type: "bit", nullable: false),
-                    CanManageRoles = table.Column<bool>(type: "bit", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    Permissions = table.Column<long>(type: "bigint", nullable: false),
+                    Position = table.Column<int>(type: "int", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -305,15 +360,14 @@ namespace Misty.Core.Migrations
                 columns: table => new
                 {
                     MessageId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    AuthorUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    AuthorUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
                     ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ConversationId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Content = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
-                    ImageUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: true),
                     SentAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EditedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    DeletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ParentMessageId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
+                    ParentMessageId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsReply = table.Column<bool>(type: "bit", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -340,7 +394,8 @@ namespace Misty.Core.Migrations
                         name: "FK_Messages_Messages_ParentMessageId",
                         column: x => x.ParentMessageId,
                         principalTable: "Messages",
-                        principalColumn: "MessageId");
+                        principalColumn: "MessageId",
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(
@@ -348,20 +403,20 @@ namespace Misty.Core.Migrations
                 columns: table => new
                 {
                     ModerationActionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    TargetUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
-                    CreatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    ChannelId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TargetUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
+                    CreatedByUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
                     Type = table.Column<int>(type: "int", nullable: false),
                     Reason = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
                     StartAt = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ExpiresAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    UpdatedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: true),
-                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false),
+                    UpdatedByUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: true),
                     TargetUserDisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     CreatedByDisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    UpdatedByDisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true)
+                    UpdatedByDisplayName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -404,14 +459,13 @@ namespace Misty.Core.Migrations
                         name: "FK_ChannelMemberRoles_ChannelMembers_ChannelMemberId",
                         column: x => x.ChannelMemberId,
                         principalTable: "ChannelMembers",
-                        principalColumn: "ChannelMemberId",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "ChannelMemberId");
                     table.ForeignKey(
                         name: "FK_ChannelMemberRoles_ChannelRoles_ChannelRoleId",
                         column: x => x.ChannelRoleId,
                         principalTable: "ChannelRoles",
                         principalColumn: "ChannelRoleId",
-                        onDelete: ReferentialAction.Restrict);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -420,7 +474,7 @@ namespace Misty.Core.Migrations
                 {
                     MessageReactionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     MessageId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    ReactedByUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ReactedByUserId = table.Column<string>(type: "nvarchar(450)", maxLength: 450, nullable: false),
                     Emoji = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
                     ReactedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -473,11 +527,45 @@ namespace Misty.Core.Migrations
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AspNetUsers_AvatarAttachmentId",
+                table: "AspNetUsers",
+                column: "AvatarAttachmentId",
+                unique: true,
+                filter: "[AvatarAttachmentId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
                 table: "AspNetUsers",
                 column: "NormalizedUserName",
                 unique: true,
                 filter: "[NormalizedUserName] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attachments_MessageId",
+                table: "Attachments",
+                column: "MessageId",
+                filter: "[MessageId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attachments_UploadedAt",
+                table: "Attachments",
+                column: "UploadedAt",
+                filter: "[MessageId] IS NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Attachments_UploadedByUserId",
+                table: "Attachments",
+                column: "UploadedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChannelAuditLogs_ActorUserId",
+                table: "ChannelAuditLogs",
+                column: "ActorUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChannelAuditLogs_ChannelId_CreatedAt",
+                table: "ChannelAuditLogs",
+                columns: new[] { "ChannelId", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChannelMemberRoles_ChannelRoleId",
@@ -488,7 +576,14 @@ namespace Misty.Core.Migrations
                 name: "IX_ChannelMembers_ChannelId_UserId",
                 table: "ChannelMembers",
                 columns: new[] { "ChannelId", "UserId" },
-                unique: true);
+                unique: true,
+                filter: "[LeftAt] IS NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChannelMembers_LeftAt",
+                table: "ChannelMembers",
+                column: "LeftAt",
+                filter: "[LeftAt] IS NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChannelMembers_UserId",
@@ -502,9 +597,27 @@ namespace Misty.Core.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_ChannelRoles_ChannelId_Position",
+                table: "ChannelRoles",
+                columns: new[] { "ChannelId", "Position" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Channels_CreatedByUserId",
                 table: "Channels",
                 column: "CreatedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Channels_DeletedAt",
+                table: "Channels",
+                column: "DeletedAt",
+                filter: "[DeletedAt] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Channels_IconAttachmentId",
+                table: "Channels",
+                column: "IconAttachmentId",
+                unique: true,
+                filter: "[IconAttachmentId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Channels_InviteCode",
@@ -514,15 +627,37 @@ namespace Misty.Core.Migrations
                 filter: "[InviteCode] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Channels_LastMessageAt",
+                table: "Channels",
+                column: "LastMessageAt",
+                filter: "[LastMessageAt] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Channels_OwnerUserId",
+                table: "Channels",
+                column: "OwnerUserId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ConversationParticipants_ConversationId_UserId",
                 table: "ConversationParticipants",
                 columns: new[] { "ConversationId", "UserId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_ConversationParticipants_HiddenAt",
+                table: "ConversationParticipants",
+                column: "HiddenAt",
+                filter: "[HiddenAt] IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ConversationParticipants_UserId",
                 table: "ConversationParticipants",
                 column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Conversations_LastMessageAt",
+                table: "Conversations",
+                column: "LastMessageAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MessageReactions_MessageId_ReactedByUserId_Emoji",
@@ -541,19 +676,22 @@ namespace Misty.Core.Migrations
                 column: "AuthorUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Messages_ChannelId_SentAt",
+                name: "IX_Messages_ChannelId_SentAt_MessageId",
                 table: "Messages",
-                columns: new[] { "ChannelId", "SentAt" });
+                columns: new[] { "ChannelId", "SentAt", "MessageId" },
+                filter: "[ChannelId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Messages_ConversationId_SentAt",
+                name: "IX_Messages_ConversationId_SentAt_MessageId",
                 table: "Messages",
-                columns: new[] { "ConversationId", "SentAt" });
+                columns: new[] { "ConversationId", "SentAt", "MessageId" },
+                filter: "[ConversationId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Messages_ParentMessageId",
                 table: "Messages",
-                column: "ParentMessageId");
+                column: "ParentMessageId",
+                filter: "[ParentMessageId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ModerationActions_ChannelId_TargetUserId_Type",
@@ -566,6 +704,12 @@ namespace Misty.Core.Migrations
                 name: "IX_ModerationActions_CreatedByUserId",
                 table: "ModerationActions",
                 column: "CreatedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ModerationActions_ExpiresAt",
+                table: "ModerationActions",
+                column: "ExpiresAt",
+                filter: "[IsActive] = 1 AND [ExpiresAt] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ModerationActions_TargetUserId",
@@ -587,11 +731,71 @@ namespace Misty.Core.Migrations
                 table: "UserBlocks",
                 columns: new[] { "BlockingUserId", "BlockedUserId" },
                 unique: true);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_AspNetUserClaims_AspNetUsers_UserId",
+                table: "AspNetUserClaims",
+                column: "UserId",
+                principalTable: "AspNetUsers",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_AspNetUserLogins_AspNetUsers_UserId",
+                table: "AspNetUserLogins",
+                column: "UserId",
+                principalTable: "AspNetUsers",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_AspNetUserRoles_AspNetUsers_UserId",
+                table: "AspNetUserRoles",
+                column: "UserId",
+                principalTable: "AspNetUsers",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_AspNetUsers_Attachments_AvatarAttachmentId",
+                table: "AspNetUsers",
+                column: "AvatarAttachmentId",
+                principalTable: "Attachments",
+                principalColumn: "AttachmentId",
+                onDelete: ReferentialAction.SetNull);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Attachments_Messages_MessageId",
+                table: "Attachments",
+                column: "MessageId",
+                principalTable: "Messages",
+                principalColumn: "MessageId",
+                onDelete: ReferentialAction.Cascade);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Attachments_AspNetUsers_UploadedByUserId",
+                table: "Attachments");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Channels_AspNetUsers_CreatedByUserId",
+                table: "Channels");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Channels_AspNetUsers_OwnerUserId",
+                table: "Channels");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Messages_AspNetUsers_AuthorUserId",
+                table: "Messages");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Channels_Attachments_IconAttachmentId",
+                table: "Channels");
+
             migrationBuilder.DropTable(
                 name: "AspNetRoleClaims");
 
@@ -606,6 +810,9 @@ namespace Misty.Core.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUserTokens");
+
+            migrationBuilder.DropTable(
+                name: "ChannelAuditLogs");
 
             migrationBuilder.DropTable(
                 name: "ChannelMemberRoles");
@@ -632,6 +839,12 @@ namespace Misty.Core.Migrations
                 name: "ChannelRoles");
 
             migrationBuilder.DropTable(
+                name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "Attachments");
+
+            migrationBuilder.DropTable(
                 name: "Messages");
 
             migrationBuilder.DropTable(
@@ -639,9 +852,6 @@ namespace Misty.Core.Migrations
 
             migrationBuilder.DropTable(
                 name: "Conversations");
-
-            migrationBuilder.DropTable(
-                name: "AspNetUsers");
         }
     }
 }

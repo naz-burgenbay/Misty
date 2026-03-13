@@ -12,7 +12,7 @@ using Misty.Core.Data;
 namespace Misty.Core.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260224130520_InitialCreate")]
+    [Migration("20260313223236_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -166,9 +166,8 @@ namespace Misty.Core.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("int");
 
-                    b.Property<string>("AvatarUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
+                    b.Property<Guid?>("AvatarAttachmentId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Bio")
                         .HasMaxLength(500)
@@ -194,9 +193,6 @@ namespace Misty.Core.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
                     b.Property<bool>("LockoutEnabled")
@@ -234,6 +230,10 @@ namespace Misty.Core.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AvatarAttachmentId")
+                        .IsUnique()
+                        .HasFilter("[AvatarAttachmentId] IS NOT NULL");
+
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
@@ -243,6 +243,56 @@ namespace Misty.Core.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Misty.Core.Data.Entities.Attachment", b =>
+                {
+                    b.Property<Guid>("AttachmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("MessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UploadedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("AttachmentId");
+
+                    b.HasIndex("MessageId")
+                        .HasFilter("[MessageId] IS NOT NULL");
+
+                    b.HasIndex("UploadedAt")
+                        .HasFilter("[MessageId] IS NULL");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.ToTable("Attachments");
                 });
 
             modelBuilder.Entity("Misty.Core.Data.Entities.Channel", b =>
@@ -256,22 +306,25 @@ namespace Misty.Core.Migrations
 
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<long>("DefaultPermissions")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("IconUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
+                    b.Property<Guid?>("IconAttachmentId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("InviteCode")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsAiAssistantEnabled")
                         .HasColumnType("bit");
@@ -279,20 +332,98 @@ namespace Misty.Core.Migrations
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime?>("LastMessageAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MemberCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("OwnerUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("ChannelId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DeletedAt")
+                        .HasFilter("[DeletedAt] IS NOT NULL");
+
+                    b.HasIndex("IconAttachmentId")
+                        .IsUnique()
+                        .HasFilter("[IconAttachmentId] IS NOT NULL");
 
                     b.HasIndex("InviteCode")
                         .IsUnique()
                         .HasFilter("[InviteCode] IS NOT NULL");
 
+                    b.HasIndex("LastMessageAt")
+                        .HasFilter("[LastMessageAt] IS NOT NULL");
+
+                    b.HasIndex("OwnerUserId");
+
                     b.ToTable("Channels");
+                });
+
+            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelAuditLog", b =>
+                {
+                    b.Property<Guid>("ChannelAuditLogId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActorDisplayName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ActorUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(45)
+                        .HasColumnType("nvarchar(45)");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("TargetType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("ChannelAuditLogId");
+
+                    b.HasIndex("ActorUserId");
+
+                    b.HasIndex("ChannelId", "CreatedAt");
+
+                    b.ToTable("ChannelAuditLogs");
                 });
 
             modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMember", b =>
@@ -307,16 +438,27 @@ namespace Misty.Core.Migrations
                     b.Property<DateTime>("JoinedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("LastReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LeftAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("UserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("ChannelMemberId");
 
+                    b.HasIndex("LeftAt")
+                        .HasFilter("[LeftAt] IS NULL");
+
                     b.HasIndex("UserId");
 
                     b.HasIndex("ChannelId", "UserId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[LeftAt] IS NULL");
 
                     b.ToTable("ChannelMembers");
                 });
@@ -345,18 +487,6 @@ namespace Misty.Core.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<bool>("CanBanUsers")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("CanDeleteMessages")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("CanManageRoles")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("CanMuteUsers")
-                        .HasColumnType("bit");
-
                     b.Property<Guid>("ChannelId")
                         .HasColumnType("uniqueidentifier");
 
@@ -371,10 +501,24 @@ namespace Misty.Core.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<long>("Permissions")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.HasKey("ChannelRoleId");
 
                     b.HasIndex("ChannelId", "Name")
                         .IsUnique();
+
+                    b.HasIndex("ChannelId", "Position");
 
                     b.ToTable("ChannelRoles");
                 });
@@ -393,6 +537,8 @@ namespace Misty.Core.Migrations
 
                     b.HasKey("ConversationId");
 
+                    b.HasIndex("LastMessageAt");
+
                     b.ToTable("Conversations");
                 });
 
@@ -405,14 +551,24 @@ namespace Misty.Core.Migrations
                     b.Property<Guid>("ConversationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("HiddenAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastReadAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("ConversationParticipantId");
+
+                    b.HasIndex("HiddenAt")
+                        .HasFilter("[HiddenAt] IS NULL");
 
                     b.HasIndex("UserId");
 
@@ -429,6 +585,8 @@ namespace Misty.Core.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AuthorUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<Guid?>("ChannelId")
@@ -442,15 +600,11 @@ namespace Misty.Core.Migrations
                     b.Property<Guid?>("ConversationId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime?>("EditedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("ImageUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
+                    b.Property<bool>("IsReply")
+                        .HasColumnType("bit");
 
                     b.Property<Guid?>("ParentMessageId")
                         .HasColumnType("uniqueidentifier");
@@ -462,11 +616,14 @@ namespace Misty.Core.Migrations
 
                     b.HasIndex("AuthorUserId");
 
-                    b.HasIndex("ParentMessageId");
+                    b.HasIndex("ParentMessageId")
+                        .HasFilter("[ParentMessageId] IS NOT NULL");
 
-                    b.HasIndex("ChannelId", "SentAt");
+                    b.HasIndex("ChannelId", "SentAt", "MessageId")
+                        .HasFilter("[ChannelId] IS NOT NULL");
 
-                    b.HasIndex("ConversationId", "SentAt");
+                    b.HasIndex("ConversationId", "SentAt", "MessageId")
+                        .HasFilter("[ConversationId] IS NOT NULL");
 
                     b.ToTable("Messages", t =>
                         {
@@ -493,6 +650,7 @@ namespace Misty.Core.Migrations
 
                     b.Property<string>("ReactedByUserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("MessageReactionId");
@@ -511,7 +669,7 @@ namespace Misty.Core.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("ChannelId")
+                    b.Property<Guid>("ChannelId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CreatedByDisplayName")
@@ -519,6 +677,8 @@ namespace Misty.Core.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime?>("ExpiresAt")
@@ -546,6 +706,8 @@ namespace Misty.Core.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("TargetUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("Type")
@@ -559,11 +721,15 @@ namespace Misty.Core.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("UpdatedByUserId")
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("ModerationActionId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasFilter("[IsActive] = 1 AND [ExpiresAt] IS NOT NULL");
 
                     b.HasIndex("TargetUserId");
 
@@ -587,15 +753,13 @@ namespace Misty.Core.Migrations
 
                     b.Property<string>("BlockedUserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("BlockingUserId")
                         .IsRequired()
+                        .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
 
                     b.HasKey("UserBlockId");
 
@@ -604,7 +768,10 @@ namespace Misty.Core.Migrations
                     b.HasIndex("BlockingUserId", "BlockedUserId")
                         .IsUnique();
 
-                    b.ToTable("UserBlocks");
+                    b.ToTable("UserBlocks", t =>
+                        {
+                            t.HasCheckConstraint("CK_UserBlock_NoSelfBlock", "[BlockingUserId] <> [BlockedUserId]");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -658,6 +825,33 @@ namespace Misty.Core.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Misty.Core.Data.Entities.ApplicationUser", b =>
+                {
+                    b.HasOne("Misty.Core.Data.Entities.Attachment", "Avatar")
+                        .WithOne()
+                        .HasForeignKey("Misty.Core.Data.Entities.ApplicationUser", "AvatarAttachmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Avatar");
+                });
+
+            modelBuilder.Entity("Misty.Core.Data.Entities.Attachment", b =>
+                {
+                    b.HasOne("Misty.Core.Data.Entities.Message", "Message")
+                        .WithMany("Attachments")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "UploadedBy")
+                        .WithMany("UploadedAttachments")
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Message");
+
+                    b.Navigation("UploadedBy");
+                });
+
             modelBuilder.Entity("Misty.Core.Data.Entities.Channel", b =>
                 {
                     b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Creator")
@@ -666,7 +860,41 @@ namespace Misty.Core.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("Misty.Core.Data.Entities.Attachment", "Icon")
+                        .WithOne()
+                        .HasForeignKey("Misty.Core.Data.Entities.Channel", "IconAttachmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Owner")
+                        .WithMany("OwnedChannels")
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.Navigation("Creator");
+
+                    b.Navigation("Icon");
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelAuditLog", b =>
+                {
+                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Actor")
+                        .WithMany("AuditLogEntries")
+                        .HasForeignKey("ActorUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
+                        .WithMany("AuditLogs")
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Actor");
+
+                    b.Navigation("Channel");
                 });
 
             modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMember", b =>
@@ -693,13 +921,13 @@ namespace Misty.Core.Migrations
                     b.HasOne("Misty.Core.Data.Entities.ChannelMember", "Member")
                         .WithMany("AssignedRoles")
                         .HasForeignKey("ChannelMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("Misty.Core.Data.Entities.ChannelRole", "Role")
                         .WithMany("MemberAssignments")
                         .HasForeignKey("ChannelRoleId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Member");
@@ -742,7 +970,8 @@ namespace Misty.Core.Migrations
                     b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Author")
                         .WithMany("Messages")
                         .HasForeignKey("AuthorUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
                         .WithMany("Messages")
@@ -757,7 +986,7 @@ namespace Misty.Core.Migrations
                     b.HasOne("Misty.Core.Data.Entities.Message", "ParentMessage")
                         .WithMany("Replies")
                         .HasForeignKey("ParentMessageId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Author");
 
@@ -792,17 +1021,20 @@ namespace Misty.Core.Migrations
                     b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
                         .WithMany("ModerationActions")
                         .HasForeignKey("ChannelId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "CreatedBy")
                         .WithMany("CreatedModerationActions")
                         .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "TargetUser")
                         .WithMany("TargetedModerationActions")
                         .HasForeignKey("TargetUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
                     b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "UpdatedBy")
                         .WithMany("UpdatedModerationActions")
@@ -839,6 +1071,8 @@ namespace Misty.Core.Migrations
 
             modelBuilder.Entity("Misty.Core.Data.Entities.ApplicationUser", b =>
                 {
+                    b.Navigation("AuditLogEntries");
+
                     b.Navigation("ConversationParticipants");
 
                     b.Navigation("CreatedChannels");
@@ -851,6 +1085,8 @@ namespace Misty.Core.Migrations
 
                     b.Navigation("Messages");
 
+                    b.Navigation("OwnedChannels");
+
                     b.Navigation("Reactions");
 
                     b.Navigation("ReceivedBlocks");
@@ -858,10 +1094,14 @@ namespace Misty.Core.Migrations
                     b.Navigation("TargetedModerationActions");
 
                     b.Navigation("UpdatedModerationActions");
+
+                    b.Navigation("UploadedAttachments");
                 });
 
             modelBuilder.Entity("Misty.Core.Data.Entities.Channel", b =>
                 {
+                    b.Navigation("AuditLogs");
+
                     b.Navigation("Members");
 
                     b.Navigation("Messages");
@@ -890,6 +1130,8 @@ namespace Misty.Core.Migrations
 
             modelBuilder.Entity("Misty.Core.Data.Entities.Message", b =>
                 {
+                    b.Navigation("Attachments");
+
                     b.Navigation("Reactions");
 
                     b.Navigation("Replies");

@@ -10,7 +10,8 @@ namespace Misty.Core.Data
             var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
 
             optionsBuilder.UseSqlServer(
-                "Server=(localdb)\\mssqllocaldb;Database=aspnet-Misty-e510df5d-487d-4019-9e9c-759b54a1597f;Trusted_Connection=True;MultipleActiveResultSets=true");
+                "Server=(localdb)\\mssqllocaldb;Database=aspnet-Misty-e510df5d-487d-4019-9e9c-759b54a1597f;Trusted_Connection=True;MultipleActiveResultSets=true",
+                sql => sql.EnableRetryOnFailure());
 
             return new ApplicationDbContext(optionsBuilder.Options);
         }

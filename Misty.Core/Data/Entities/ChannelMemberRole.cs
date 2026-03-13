@@ -4,7 +4,7 @@ namespace Misty.Core.Data.Entities
     {
         public Guid ChannelMemberId { get; set; }
         public Guid ChannelRoleId { get; set; }
-        public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
+        public DateTime AssignedAt { get; set; }
 
         // Navigation Properties
         public ChannelMember Member { get; set; } = null!;

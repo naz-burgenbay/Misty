@@ -1,3 +1,5 @@
+using Misty.Core.Enums;
+
 namespace Misty.Core.Data.Entities
 {
     public class ChannelRole
@@ -6,11 +8,10 @@ namespace Misty.Core.Data.Entities
         public Guid ChannelId { get; set; }
         public string Name { get; set; } = string.Empty;
         public bool IsSystemRole { get; set; }
-        public bool CanDeleteMessages { get; set; }
-        public bool CanMuteUsers { get; set; }
-        public bool CanBanUsers { get; set; }
-        public bool CanManageRoles { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public ChannelPermission Permissions { get; set; }
+        public int Position { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public byte[] RowVersion { get; set; } = null!;
 
         // Navigation Properties
         public Channel Channel { get; set; } = null!;

@@ -4,15 +4,20 @@ namespace Misty.Core.Data.Entities
 {
     public class ApplicationUser : IdentityUser
     {
+        [PersonalData]
         public string DisplayName { get; set; } = string.Empty;
+        [PersonalData]
         public string? Bio { get; set; }
-        public string? AvatarUrl { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        [PersonalData]
+        public Guid? AvatarAttachmentId { get; set; }
+        public DateTime CreatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
-        public bool IsActive { get; set; } = true;
 
         // Navigation Properties
+        public Attachment? Avatar { get; set; }
+        public ICollection<Attachment> UploadedAttachments { get; set; } = new List<Attachment>();
         public ICollection<Channel> CreatedChannels { get; set; } = new List<Channel>();
+        public ICollection<Channel> OwnedChannels { get; set; } = new List<Channel>();
         public ICollection<ChannelMember> Memberships { get; set; } = new List<ChannelMember>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();
         public ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
@@ -22,5 +27,6 @@ namespace Misty.Core.Data.Entities
         public ICollection<ModerationAction> TargetedModerationActions { get; set; } = new List<ModerationAction>();
         public ICollection<ModerationAction> CreatedModerationActions { get; set; } = new List<ModerationAction>();
         public ICollection<ModerationAction> UpdatedModerationActions { get; set; } = new List<ModerationAction>();
+        public ICollection<ChannelAuditLog> AuditLogEntries { get; set; } = new List<ChannelAuditLog>();
     }
 }
