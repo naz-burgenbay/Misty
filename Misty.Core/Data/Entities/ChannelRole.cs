@@ -1,4 +1,4 @@
-using Misty.Core.Enums;
+using Misty.Application.Enums;
 
 namespace Misty.Core.Data.Entities
 {

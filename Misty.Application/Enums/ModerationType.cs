@@ -1,4 +1,4 @@
-namespace Misty.Core.Enums;
+namespace Misty.Application.Enums;
 
 public enum ModerationType
 {
