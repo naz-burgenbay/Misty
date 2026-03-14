@@ -6,7 +6,7 @@ namespace Misty.Core.Data.Entities
         public Guid MessageId { get; set; }
         public required string ReactedByUserId { get; set; }
         public string Emoji { get; set; } = string.Empty;
-        public DateTime ReactedAt { get; set; }
+        public DateTimeOffset ReactedAt { get; set; }
 
         // Navigation Properties
         public Message Message { get; set; } = null!;

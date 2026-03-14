@@ -5,8 +5,8 @@ namespace Misty.Core.Data.Entities
         public const int MaxParticipants = 2;
 
         public Guid ConversationId { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? LastMessageAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? LastMessageAt { get; set; }
 
         // Navigation Properties
         public ICollection<ConversationParticipant> Participants { get; set; } = new List<ConversationParticipant>();

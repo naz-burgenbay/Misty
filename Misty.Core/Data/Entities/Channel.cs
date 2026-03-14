@@ -8,8 +8,8 @@ namespace Misty.Core.Data.Entities
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public Guid? IconAttachmentId { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? DeletedAt { get; set; }
         public bool IsPrivate { get; set; }
         public string? InviteCode { get; set; }
         public bool IsAiAssistantEnabled { get; set; }
@@ -17,7 +17,7 @@ namespace Misty.Core.Data.Entities
         public required string OwnerUserId { get; set; }
         public ChannelPermission DefaultPermissions { get; set; } = ChannelPermission.SendMessages | ChannelPermission.AddReactions | ChannelPermission.AttachFiles;
         public int MemberCount { get; set; }
-        public DateTime? LastMessageAt { get; set; }
+        public DateTimeOffset? LastMessageAt { get; set; }
         public byte[] RowVersion { get; set; } = null!;
 
         // Navigation Properties

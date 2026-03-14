@@ -13,7 +13,7 @@ namespace Misty.Core.Data.Entities
         public string? Details { get; set; }
         public string? ActorDisplayName { get; set; }
         public string? IpAddress { get; set; }
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         // Navigation Properties
         public Channel Channel { get; set; } = null!;

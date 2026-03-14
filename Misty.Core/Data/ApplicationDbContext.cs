@@ -38,8 +38,6 @@ namespace Misty.Core.Data
             //  11. ChannelAuditLog entries remain (again, Art. 6(1)(f) legitimate interest: moderation record integrity)
             builder.Entity<ApplicationUser>(e =>
             {
-                e.HasQueryFilter(u => u.DeletedAt == null);
-
                 e.Property(u => u.DisplayName).HasMaxLength(100);
                 e.Property(u => u.Bio).HasMaxLength(500);
 
@@ -414,7 +412,7 @@ namespace Misty.Core.Data
 
         private void OnBeforeSave()
         {
-            var now = DateTime.UtcNow;
+            var now = DateTimeOffset.UtcNow;
             var memberCountDeltas = new Dictionary<Guid, int>();
 
             foreach (var entry in ChangeTracker.Entries())
@@ -424,9 +422,9 @@ namespace Misty.Core.Data
                 {
                     foreach (var prop in entry.Properties)
                     {
-                        if (prop.Metadata.ClrType == typeof(DateTime)
+                        if (prop.Metadata.ClrType == typeof(DateTimeOffset)
                             && !prop.Metadata.IsNullable
-                            && prop.CurrentValue is DateTime dt
+                            && prop.CurrentValue is DateTimeOffset dt
                             && dt == default)
                         {
                             prop.CurrentValue = now;

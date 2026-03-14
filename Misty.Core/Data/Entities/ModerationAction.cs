@@ -10,10 +10,10 @@ namespace Misty.Core.Data.Entities
         public required string CreatedByUserId { get; set; }
         public ModerationType Type { get; set; }
         public string Reason { get; set; } = string.Empty;
-        public DateTime StartAt { get; set; }
-        public DateTime? ExpiresAt { get; set; }
+        public DateTimeOffset StartAt { get; set; }
+        public DateTimeOffset? ExpiresAt { get; set; }
         public bool IsActive { get; set; } = true;
-        public DateTime? UpdatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
         public string? UpdatedByUserId { get; set; }
         public string? TargetUserDisplayName { get; set; }
         public string? CreatedByDisplayName { get; set; }

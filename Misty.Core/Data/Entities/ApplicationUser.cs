@@ -10,8 +10,8 @@ namespace Misty.Core.Data.Entities
         public string? Bio { get; set; }
         [PersonalData]
         public Guid? AvatarAttachmentId { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public DateTime? DeletedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? DeletedAt { get; set; }
 
         // Navigation Properties
         public Attachment? Avatar { get; set; }

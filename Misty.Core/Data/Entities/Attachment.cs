@@ -12,7 +12,7 @@ namespace Misty.Core.Data.Entities
         public string StoragePath { get; set; } = string.Empty;
         public string ContentType { get; set; } = string.Empty;
         public long FileSizeBytes { get; set; }
-        public DateTime UploadedAt { get; set; }
+        public DateTimeOffset UploadedAt { get; set; }
 
         // Navigation Properties
         public ApplicationUser? UploadedBy { get; set; }

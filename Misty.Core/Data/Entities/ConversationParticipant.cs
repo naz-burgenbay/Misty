@@ -5,9 +5,9 @@ namespace Misty.Core.Data.Entities
         public Guid ConversationParticipantId { get; set; }
         public Guid ConversationId { get; set; }
         public required string UserId { get; set; }
-        public DateTime JoinedAt { get; set; }
-        public DateTime? HiddenAt { get; set; }
-        public DateTime? LastReadAt { get; set; }
+        public DateTimeOffset JoinedAt { get; set; }
+        public DateTimeOffset? HiddenAt { get; set; }
+        public DateTimeOffset? LastReadAt { get; set; }
 
         // Navigation Properties
         public Conversation Conversation { get; set; } = null!;

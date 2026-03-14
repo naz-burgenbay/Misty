@@ -7,8 +7,8 @@ namespace Misty.Core.Data.Entities
         public Guid? ChannelId { get; set; }
         public Guid? ConversationId { get; set; }
         public string Content { get; set; } = string.Empty;
-        public DateTime SentAt { get; set; }
-        public DateTime? EditedAt { get; set; }
+        public DateTimeOffset SentAt { get; set; }
+        public DateTimeOffset? EditedAt { get; set; }
         public Guid? ParentMessageId { get; set; }
         public bool IsReply { get; set; }
 
