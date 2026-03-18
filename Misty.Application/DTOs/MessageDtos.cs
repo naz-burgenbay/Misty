@@ -32,6 +32,7 @@ public record SendMessageRequest
 {
     public string Content { get; init; } = default!;
     public Guid? ParentMessageId { get; init; }
+    public IReadOnlyList<Guid>? AttachmentIds { get; init; }
 }
 
 public record UpdateMessageRequest

@@ -44,3 +44,8 @@ public record UpdateChannelRequest
     public bool? IsAiAssistantEnabled { get; init; }
     public ChannelPermission? DefaultPermissions { get; init; }
 }
+
+public record TransferOwnershipRequest
+{
+    public string NewOwnerUserId { get; init; } = default!;
+}
