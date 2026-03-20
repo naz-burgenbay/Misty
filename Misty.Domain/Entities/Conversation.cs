@@ -1,4 +1,4 @@
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class Conversation
     {

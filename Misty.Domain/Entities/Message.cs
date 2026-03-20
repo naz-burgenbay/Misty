@@ -1,4 +1,4 @@
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class Message
     {
@@ -13,7 +13,7 @@ namespace Misty.Core.Data.Entities
         public bool IsReply { get; set; }
 
         // Navigation Properties
-        public ApplicationUser? Author { get; set; }
+        public User? Author { get; set; }
         public Channel? Channel { get; set; }
         public Conversation? Conversation { get; set; }
         public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();

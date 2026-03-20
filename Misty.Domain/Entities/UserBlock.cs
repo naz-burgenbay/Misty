@@ -1,4 +1,4 @@
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class UserBlock
     {
@@ -8,7 +8,7 @@ namespace Misty.Core.Data.Entities
         public DateTimeOffset BlockedAt { get; set; }
 
         // Navigation Properties
-        public ApplicationUser? BlockingUser { get; set; }
-        public ApplicationUser? BlockedUser { get; set; }
+        public User? BlockingUser { get; set; }
+        public User? BlockedUser { get; set; }
     }
 }

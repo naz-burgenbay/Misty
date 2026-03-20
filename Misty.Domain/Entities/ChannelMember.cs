@@ -1,4 +1,4 @@
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class ChannelMember
     {
@@ -10,7 +10,7 @@ namespace Misty.Core.Data.Entities
         public DateTimeOffset? LastReadAt { get; set; }
 
         // Navigation Properties
-        public ApplicationUser User { get; set; } = null!;
+        public User User { get; set; } = null!;
         public Channel Channel { get; set; } = null!;
         public ICollection<ChannelMemberRole> AssignedRoles { get; set; } = new List<ChannelMemberRole>();
     }

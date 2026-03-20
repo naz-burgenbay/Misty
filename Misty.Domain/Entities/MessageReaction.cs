@@ -1,4 +1,4 @@
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class MessageReaction
     {
@@ -10,6 +10,6 @@ namespace Misty.Core.Data.Entities
 
         // Navigation Properties
         public Message Message { get; set; } = null!;
-        public ApplicationUser? User { get; set; }
+        public User? User { get; set; }
     }
 }

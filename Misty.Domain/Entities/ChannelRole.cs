@@ -1,6 +1,6 @@
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class ChannelRole
     {
@@ -11,7 +11,7 @@ namespace Misty.Core.Data.Entities
         public ChannelPermission Permissions { get; set; }
         public int Position { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
-        public byte[] RowVersion { get; set; } = null!;
+        public byte[] Version { get; set; } = null!;
 
         // Navigation Properties
         public Channel Channel { get; set; } = null!;

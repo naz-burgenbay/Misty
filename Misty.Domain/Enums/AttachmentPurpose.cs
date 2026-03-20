@@ -1,4 +1,4 @@
-namespace Misty.Application.Enums;
+namespace Misty.Domain.Enums;
 
 public enum AttachmentPurpose
 {

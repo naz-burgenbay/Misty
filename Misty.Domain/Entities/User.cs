@@ -1,14 +1,11 @@
-using Microsoft.AspNetCore.Identity;
-
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
-    public class ApplicationUser : IdentityUser
+    public class User
     {
-        [PersonalData]
+        public string UserId { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
-        [PersonalData]
         public string? Bio { get; set; }
-        [PersonalData]
         public Guid? AvatarAttachmentId { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset? DeletedAt { get; set; }
