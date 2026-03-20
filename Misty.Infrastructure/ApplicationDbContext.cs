@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Misty.Core.Data.Entities;
+using Misty.Domain.Entities;
+using Misty.Infrastructure.Identity;
 
-namespace Misty.Core.Data
+namespace Misty.Infrastructure
 {
     public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
     {
+        public DbSet<User> DomainUsers => Set<User>();
         public DbSet<Channel> Channels => Set<Channel>();
         public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
         public DbSet<ChannelMemberRole> ChannelMemberRoles => Set<ChannelMemberRole>();
@@ -23,27 +25,30 @@ namespace Misty.Core.Data
         {
             base.OnModelCreating(builder);
 
-            // ApplicationUser is soft-deleted via anonymization. PII is scrubbed, DisplayName changed to "Deleted User", account disabled, but row is never physically removed.
+            // User + ApplicationUser are soft-deleted via anonymization. PII is scrubbed across both tables, account disabled. Rows are never physically removed.
+            // Pre-condition: user must not own any channels (must transfer ownership first).
             // Anonymization Service will do these:
-            //   1. Scrub PII, turns DisplayName to "Deleted User"
-            //   2. Set DeletedAt, LockoutEnabled = true, LockoutEnd = MaxValue, AvatarAttachmentId → null
+            //   1. ApplicationUser: scrub Email (deleted_{id}@removed.invalid), NormalizedEmail (DELETED_{ID}@REMOVED.INVALID), PasswordHash (null), SecurityStamp (new Guid), PhoneNumber (null), UserName (deleted_{id}), NormalizedUserName (DELETED_{ID}), disable account (LockoutEnabled = true, LockoutEnd = DateTimeOffset.MaxValue)
+            //   2. User: scrub Username (deleted_{id}) (matches ApplicationUser.UserName), DisplayName ("Deleted User"), Bio (null), AvatarAttachmentId (null), DeletedAt (now)
             //   3. Hard-delete avatar Attachment row + blob storage file
             //   4. Hard-delete all UserBlocks (in both directions)
             //   5. Hard-delete all MessageReactions by user
             //   6. Set LeftAt on all active ChannelMember records, hard-delete their ChannelMemberRole assignments
-            //   7. Null out Attachment.UploadedByUserId for user's uploaded attachments
-            //   8. Null out ChannelAuditLog.IpAddress for all entries by the user (bc IP is PII)
-            //   9. Messages, ConversationParticipants remain — they reference the anonymized row
-            //  10. ModerationAction rows remain as audit trail, FK references the anonymized row (Art. 6(1)(f) legitimate interest: moderation record integrity)
-            //  11. ChannelAuditLog entries remain (again, Art. 6(1)(f) legitimate interest: moderation record integrity)
-            builder.Entity<ApplicationUser>(e =>
+            //   7. Null out ChannelAuditLog.IpAddress for all entries by the user (IP is high level PII (CJEU C-582/14), keeping it adds little value).
+            //   8. ModerationAction, Messages, Attachments, ConversationParticipants remain but they reference the anonymized row
+            //   9. ChannelAuditLog entries remain. ActorDisplayName snapshot preserves readability (Art. 6(1)(f))
+            builder.Entity<User>(e =>
             {
+                e.HasKey(u => u.UserId);
+                e.Property(u => u.UserId).HasMaxLength(450);
+                e.Property(u => u.Username).HasMaxLength(256);
+                e.HasIndex(u => u.Username).IsUnique();
                 e.Property(u => u.DisplayName).HasMaxLength(100);
                 e.Property(u => u.Bio).HasMaxLength(500);
 
                 e.HasOne(u => u.Avatar)
                     .WithOne()
-                    .HasForeignKey<ApplicationUser>(u => u.AvatarAttachmentId)
+                    .HasForeignKey<User>(u => u.AvatarAttachmentId)
                     // Service handles attachment cleanup; detach reference only
                     .OnDelete(DeleteBehavior.SetNull);
             });
@@ -61,7 +66,7 @@ namespace Misty.Core.Data
                 e.Property(c => c.InviteCode).HasMaxLength(50);
                 e.Property(c => c.CreatedByUserId).HasMaxLength(450);
                 e.Property(c => c.OwnerUserId).HasMaxLength(450);
-                e.Property(c => c.RowVersion).IsRowVersion();
+                e.Property(c => c.Version).IsRowVersion();
 
                 e.HasOne(c => c.Icon)
                     .WithOne()
@@ -129,7 +134,7 @@ namespace Misty.Core.Data
                 e.HasQueryFilter(cr => cr.Channel.DeletedAt == null);
 
                 e.Property(cr => cr.Name).HasMaxLength(100);
-                e.Property(cr => cr.RowVersion).IsRowVersion();
+                e.Property(cr => cr.Version).IsRowVersion();
 
                 e.HasIndex(cr => new { cr.ChannelId, cr.Name }).IsUnique();
                 e.HasIndex(cr => new { cr.ChannelId, cr.Position });
@@ -278,7 +283,7 @@ namespace Misty.Core.Data
                 e.Property(ma => ma.TargetUserDisplayName).HasMaxLength(100);
                 e.Property(ma => ma.CreatedByDisplayName).HasMaxLength(100);
                 e.Property(ma => ma.UpdatedByDisplayName).HasMaxLength(100);
-                e.Property(ma => ma.RowVersion).IsRowVersion();
+                e.Property(ma => ma.Version).IsRowVersion();
 
                 e.HasIndex(ma => new { ma.ChannelId, ma.TargetUserId, ma.Type })
                     .IsUnique()
