@@ -13,7 +13,7 @@ namespace Misty.Domain.Entities
         public bool IsReply { get; set; }
 
         // Navigation Properties
-        public User? Author { get; set; }
+        public User Author { get; set; } = null!;
         public Channel? Channel { get; set; }
         public Conversation? Conversation { get; set; }
         public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();

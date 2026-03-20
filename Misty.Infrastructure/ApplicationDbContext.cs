@@ -28,8 +28,8 @@ namespace Misty.Infrastructure
             // User + ApplicationUser are soft-deleted via anonymization. PII is scrubbed across both tables, account disabled. Rows are never physically removed.
             // Pre-condition: user must not own any channels (must transfer ownership first).
             // Anonymization Service will do these:
-            //   1. ApplicationUser: scrub Email (deleted_{id}@removed.invalid), NormalizedEmail (DELETED_{ID}@REMOVED.INVALID), PasswordHash (null), SecurityStamp (new Guid), PhoneNumber (null), UserName (deleted_{id}), NormalizedUserName (DELETED_{ID}), disable account (LockoutEnabled = true, LockoutEnd = DateTimeOffset.MaxValue)
-            //   2. User: scrub Username (deleted_{id}) (matches ApplicationUser.UserName), DisplayName ("Deleted User"), Bio (null), AvatarAttachmentId (null), DeletedAt (now)
+            //   1. ApplicationUser: scrub Email (deleted_{id}@removed.invalid), NormalizedEmail (DELETED_{ID}@REMOVED.INVALID), PasswordHash (null), SecurityStamp (new Guid), PhoneNumber (null), disable account (LockoutEnabled = true, LockoutEnd = DateTimeOffset.MaxValue)
+            //   2. User: scrub Username (deleted_{id}), NormalizedUsername (DELETED_{ID}), DisplayName ("Deleted User"), Bio (null), AvatarAttachmentId (null), DeletedAt (now)
             //   3. Hard-delete avatar Attachment row + blob storage file
             //   4. Hard-delete all UserBlocks (in both directions)
             //   5. Hard-delete all MessageReactions by user
@@ -41,10 +41,30 @@ namespace Misty.Infrastructure
             {
                 e.HasKey(u => u.UserId);
                 e.Property(u => u.UserId).HasMaxLength(450);
-                e.Property(u => u.Username).HasMaxLength(256);
-                e.HasIndex(u => u.Username).IsUnique();
-                e.Property(u => u.DisplayName).HasMaxLength(100);
+
+                e.Property(u => u.Username)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                e.Property(u => u.NormalizedUsername)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                e.HasIndex(u => u.NormalizedUsername)
+                    .IsUnique()
+                    .HasFilter("[DeletedAt] IS NULL");
+
+                e.Property(u => u.DisplayName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
                 e.Property(u => u.Bio).HasMaxLength(500);
+
+                e.Property(u => u.DeletedAt);
+                e.HasIndex(u => u.DeletedAt);
+
+                e.Property(u => u.Version)
+                    .IsRowVersion();
 
                 e.HasOne(u => u.Avatar)
                     .WithOne()
@@ -187,7 +207,7 @@ namespace Misty.Infrastructure
                 e.HasOne(cp => cp.Conversation)
                     .WithMany(c => c.Participants)
                     .HasForeignKey(cp => cp.ConversationId)
-                    // If conversation deleted, remove all participants
+                    // Conversations are never deleted in practice (hidden via HiddenAt); cascade exists as a safety net
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasIndex(cp => cp.HiddenAt)
@@ -271,7 +291,7 @@ namespace Misty.Infrastructure
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // ModerationAction cascades with channel permanent deletion. Active sanctions deactivated in service when revoked. On user anonymization: FK references the anonymized user row, but the snapshots of their display names remain as audit trail under Art. 6(1)(f) legitimate interest (moderation record integrity, abuse prevention).
+            // ModerationAction cascades with channel permanent deletion. Active sanctions deactivated in service when revoked. On user anonymization: FK references the anonymized user row; display names are resolved at query time via the navigation property (Art. 6(1)(f) legitimate interest: moderation record integrity, abuse prevention).
             builder.Entity<ModerationAction>(e =>
             {
                 e.HasKey(ma => ma.ModerationActionId);
@@ -280,9 +300,6 @@ namespace Misty.Infrastructure
                 e.Property(ma => ma.TargetUserId).HasMaxLength(450);
                 e.Property(ma => ma.CreatedByUserId).HasMaxLength(450);
                 e.Property(ma => ma.UpdatedByUserId).HasMaxLength(450);
-                e.Property(ma => ma.TargetUserDisplayName).HasMaxLength(100);
-                e.Property(ma => ma.CreatedByDisplayName).HasMaxLength(100);
-                e.Property(ma => ma.UpdatedByDisplayName).HasMaxLength(100);
                 e.Property(ma => ma.Version).IsRowVersion();
 
                 e.HasIndex(ma => new { ma.ChannelId, ma.TargetUserId, ma.Type })
@@ -336,7 +353,7 @@ namespace Misty.Infrastructure
                 e.HasOne(a => a.UploadedBy)
                     .WithMany(u => u.UploadedAttachments)
                     .HasForeignKey(a => a.UploadedByUserId)
-                    // Anonymization nullifies this FK via service
+                    // User rows are never hard-deleted
                     .OnDelete(DeleteBehavior.NoAction);
 
                 e.HasOne(a => a.Message)

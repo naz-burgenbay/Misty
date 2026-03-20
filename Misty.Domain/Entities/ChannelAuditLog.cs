@@ -17,6 +17,6 @@ namespace Misty.Domain.Entities
 
         // Navigation Properties
         public Channel Channel { get; set; } = null!;
-        public User? Actor { get; set; }
+        public User Actor { get; set; } = null!;
     }
 }

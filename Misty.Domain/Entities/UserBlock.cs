@@ -8,7 +8,7 @@ namespace Misty.Domain.Entities
         public DateTimeOffset BlockedAt { get; set; }
 
         // Navigation Properties
-        public User? BlockingUser { get; set; }
-        public User? BlockedUser { get; set; }
+        public User BlockingUser { get; set; } = null!;
+        public User BlockedUser { get; set; } = null!;
     }
 }

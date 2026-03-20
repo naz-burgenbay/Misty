@@ -11,6 +11,6 @@ namespace Misty.Domain.Entities
 
         // Navigation Properties
         public Conversation Conversation { get; set; } = null!;
-        public User? User { get; set; }
+        public User User { get; set; } = null!;
     }
 }
