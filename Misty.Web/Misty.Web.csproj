@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Misty.Core\Misty.Core.csproj" />
+    <ProjectReference Include="..\Misty.Infrastructure\Misty.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

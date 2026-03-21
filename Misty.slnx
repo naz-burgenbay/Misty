@@ -1,7 +1,6 @@
 <Solution>
   <Project Path="Misty.Domain/Misty.Domain.csproj" />
   <Project Path="Misty.Application/Misty.Application.csproj" />
-  <Project Path="Misty.Core/Misty.Core.csproj" />
   <Project Path="Misty.Infrastructure/Misty.Infrastructure.csproj" />
   <Project Path="Misty.Web/Misty.Web.csproj" />
 </Solution>

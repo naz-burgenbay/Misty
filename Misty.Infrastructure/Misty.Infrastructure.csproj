@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Misty.Domain\Misty.Domain.csproj" />
+    <ProjectReference Include="..\Misty.Application\Misty.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
