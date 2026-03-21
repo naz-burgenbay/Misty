@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Misty.Core.Data.Entities;
+using Misty.Infrastructure.Identity;
 using Misty.Web.Components;
 using Misty.Web.Components.Account;
-using Misty.Core.Data;
+using Misty.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 

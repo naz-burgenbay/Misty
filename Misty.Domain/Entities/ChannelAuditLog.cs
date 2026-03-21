@@ -1,6 +1,6 @@
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class ChannelAuditLog
     {
@@ -17,6 +17,6 @@ namespace Misty.Core.Data.Entities
 
         // Navigation Properties
         public Channel Channel { get; set; } = null!;
-        public ApplicationUser? Actor { get; set; }
+        public User Actor { get; set; } = null!;
     }
 }

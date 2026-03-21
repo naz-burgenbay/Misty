@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Misty.Core.Data;
+using Misty.Infrastructure;
 
 #nullable disable
 
-namespace Misty.Core.Migrations
+namespace Misty.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
     partial class ApplicationDbContextModelSnapshot : ModelSnapshot
@@ -155,94 +155,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ApplicationUser", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("AvatarAttachmentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Bio")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("NormalizedEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("NormalizedUserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("UserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AvatarAttachmentId")
-                        .IsUnique()
-                        .HasFilter("[AvatarAttachmentId] IS NOT NULL");
-
-                    b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
-
-                    b.HasIndex("NormalizedUserName")
-                        .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
-
-                    b.ToTable("AspNetUsers", (string)null);
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.Attachment", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Attachment", b =>
                 {
                     b.Property<Guid>("AttachmentId")
                         .ValueGeneratedOnAdd()
@@ -292,7 +205,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("Attachments");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.Channel", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Channel", b =>
                 {
                     b.Property<Guid>("ChannelId")
                         .ValueGeneratedOnAdd()
@@ -300,11 +213,6 @@ namespace Misty.Core.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("CreatedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("nvarchar(450)");
 
                     b.Property<long>("DefaultPermissions")
                         .HasColumnType("bigint");
@@ -345,15 +253,16 @@ namespace Misty.Core.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte[]>("Version")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
                     b.HasKey("ChannelId");
-
-                    b.HasIndex("CreatedByUserId");
 
                     b.HasIndex("DeletedAt")
                         .HasFilter("[DeletedAt] IS NOT NULL");
@@ -371,10 +280,12 @@ namespace Misty.Core.Migrations
 
                     b.HasIndex("OwnerUserId");
 
+                    b.HasIndex("UserId");
+
                     b.ToTable("Channels");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelAuditLog", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelAuditLog", b =>
                 {
                     b.Property<Guid>("ChannelAuditLogId")
                         .ValueGeneratedOnAdd()
@@ -423,7 +334,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("ChannelAuditLogs");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMember", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelMember", b =>
                 {
                     b.Property<Guid>("ChannelMemberId")
                         .ValueGeneratedOnAdd()
@@ -460,7 +371,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("ChannelMembers");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMemberRole", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelMemberRole", b =>
                 {
                     b.Property<Guid>("ChannelMemberId")
                         .HasColumnType("uniqueidentifier");
@@ -478,7 +389,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("ChannelMemberRoles");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelRole", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelRole", b =>
                 {
                     b.Property<Guid>("ChannelRoleId")
                         .ValueGeneratedOnAdd()
@@ -504,7 +415,7 @@ namespace Misty.Core.Migrations
                     b.Property<int>("Position")
                         .HasColumnType("int");
 
-                    b.Property<byte[]>("RowVersion")
+                    b.Property<byte[]>("Version")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
@@ -520,7 +431,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("ChannelRoles");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.Conversation", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Conversation", b =>
                 {
                     b.Property<Guid>("ConversationId")
                         .ValueGeneratedOnAdd()
@@ -539,7 +450,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("Conversations");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ConversationParticipant", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ConversationParticipant", b =>
                 {
                     b.Property<Guid>("ConversationParticipantId")
                         .ValueGeneratedOnAdd()
@@ -575,7 +486,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("ConversationParticipants");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.Message", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Message", b =>
                 {
                     b.Property<Guid>("MessageId")
                         .ValueGeneratedOnAdd()
@@ -628,7 +539,7 @@ namespace Misty.Core.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.MessageReaction", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.MessageReaction", b =>
                 {
                     b.Property<Guid>("MessageReactionId")
                         .ValueGeneratedOnAdd()
@@ -660,7 +571,7 @@ namespace Misty.Core.Migrations
                     b.ToTable("MessageReactions");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ModerationAction", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ModerationAction", b =>
                 {
                     b.Property<Guid>("ModerationActionId")
                         .ValueGeneratedOnAdd()
@@ -668,10 +579,6 @@ namespace Misty.Core.Migrations
 
                     b.Property<Guid>("ChannelId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("CreatedByDisplayName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
@@ -689,18 +596,8 @@ namespace Misty.Core.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
                     b.Property<DateTimeOffset>("StartAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("TargetUserDisplayName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("TargetUserId")
                         .IsRequired()
@@ -713,13 +610,15 @@ namespace Misty.Core.Migrations
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<string>("UpdatedByDisplayName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("UpdatedByUserId")
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.HasKey("ModerationActionId");
 
@@ -739,7 +638,62 @@ namespace Misty.Core.Migrations
                     b.ToTable("ModerationActions");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.UserBlock", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.User", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<Guid?>("AvatarAttachmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NormalizedUsername")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<byte[]>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("AvatarAttachmentId")
+                        .IsUnique()
+                        .HasFilter("[AvatarAttachmentId] IS NOT NULL");
+
+                    b.HasIndex("DeletedAt");
+
+                    b.HasIndex("NormalizedUsername")
+                        .IsUnique()
+                        .HasFilter("[DeletedAt] IS NULL");
+
+                    b.ToTable("DomainUsers");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.UserBlock", b =>
                 {
                     b.Property<Guid>("UserBlockId")
                         .ValueGeneratedOnAdd()
@@ -771,6 +725,71 @@ namespace Misty.Core.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Misty.Infrastructure.Identity.ApplicationUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+
+                    b.ToTable("AspNetUsers", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -782,7 +801,7 @@ namespace Misty.Core.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", null)
+                    b.HasOne("Misty.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -791,7 +810,7 @@ namespace Misty.Core.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", null)
+                    b.HasOne("Misty.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -806,7 +825,7 @@ namespace Misty.Core.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", null)
+                    b.HasOne("Misty.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -815,75 +834,61 @@ namespace Misty.Core.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", null)
+                    b.HasOne("Misty.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ApplicationUser", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Attachment", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.Attachment", "Avatar")
-                        .WithOne()
-                        .HasForeignKey("Misty.Core.Data.Entities.ApplicationUser", "AvatarAttachmentId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Avatar");
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.Attachment", b =>
-                {
-                    b.HasOne("Misty.Core.Data.Entities.Message", "Message")
+                    b.HasOne("Misty.Domain.Entities.Message", "Message")
                         .WithMany("Attachments")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "UploadedBy")
+                    b.HasOne("Misty.Domain.Entities.User", "UploadedBy")
                         .WithMany("UploadedAttachments")
                         .HasForeignKey("UploadedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Message");
 
                     b.Navigation("UploadedBy");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.Channel", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Channel", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Creator")
-                        .WithMany("CreatedChannels")
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("Misty.Core.Data.Entities.Attachment", "Icon")
+                    b.HasOne("Misty.Domain.Entities.Attachment", "Icon")
                         .WithOne()
-                        .HasForeignKey("Misty.Core.Data.Entities.Channel", "IconAttachmentId")
+                        .HasForeignKey("Misty.Domain.Entities.Channel", "IconAttachmentId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Owner")
+                    b.HasOne("Misty.Domain.Entities.User", "Owner")
                         .WithMany("OwnedChannels")
                         .HasForeignKey("OwnerUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Creator");
+                    b.HasOne("Misty.Domain.Entities.User", null)
+                        .WithMany("CreatedChannels")
+                        .HasForeignKey("UserId");
 
                     b.Navigation("Icon");
 
                     b.Navigation("Owner");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelAuditLog", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelAuditLog", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Actor")
+                    b.HasOne("Misty.Domain.Entities.User", "Actor")
                         .WithMany("AuditLogEntries")
                         .HasForeignKey("ActorUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
+                    b.HasOne("Misty.Domain.Entities.Channel", "Channel")
                         .WithMany("AuditLogs")
                         .HasForeignKey("ChannelId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -894,18 +899,18 @@ namespace Misty.Core.Migrations
                     b.Navigation("Channel");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMember", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelMember", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
+                    b.HasOne("Misty.Domain.Entities.Channel", "Channel")
                         .WithMany("Members")
                         .HasForeignKey("ChannelId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "User")
+                    b.HasOne("Misty.Domain.Entities.User", "User")
                         .WithMany("Memberships")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Channel");
@@ -913,15 +918,15 @@ namespace Misty.Core.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMemberRole", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelMemberRole", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ChannelMember", "Member")
+                    b.HasOne("Misty.Domain.Entities.ChannelMember", "Member")
                         .WithMany("AssignedRoles")
                         .HasForeignKey("ChannelMemberId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ChannelRole", "Role")
+                    b.HasOne("Misty.Domain.Entities.ChannelRole", "Role")
                         .WithMany("MemberAssignments")
                         .HasForeignKey("ChannelRoleId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -932,9 +937,9 @@ namespace Misty.Core.Migrations
                     b.Navigation("Role");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelRole", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelRole", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
+                    b.HasOne("Misty.Domain.Entities.Channel", "Channel")
                         .WithMany("Roles")
                         .HasForeignKey("ChannelId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -943,18 +948,18 @@ namespace Misty.Core.Migrations
                     b.Navigation("Channel");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ConversationParticipant", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ConversationParticipant", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.Conversation", "Conversation")
+                    b.HasOne("Misty.Domain.Entities.Conversation", "Conversation")
                         .WithMany("Participants")
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "User")
+                    b.HasOne("Misty.Domain.Entities.User", "User")
                         .WithMany("ConversationParticipants")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Conversation");
@@ -962,28 +967,28 @@ namespace Misty.Core.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.Message", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Message", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "Author")
+                    b.HasOne("Misty.Domain.Entities.User", "Author")
                         .WithMany("Messages")
                         .HasForeignKey("AuthorUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
+                    b.HasOne("Misty.Domain.Entities.Channel", "Channel")
                         .WithMany("Messages")
                         .HasForeignKey("ChannelId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("Misty.Core.Data.Entities.Conversation", "Conversation")
+                    b.HasOne("Misty.Domain.Entities.Conversation", "Conversation")
                         .WithMany("Messages")
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("Misty.Core.Data.Entities.Message", "ParentMessage")
+                    b.HasOne("Misty.Domain.Entities.Message", "ParentMessage")
                         .WithMany("Replies")
                         .HasForeignKey("ParentMessageId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Author");
 
@@ -994,18 +999,18 @@ namespace Misty.Core.Migrations
                     b.Navigation("ParentMessage");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.MessageReaction", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.MessageReaction", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.Message", "Message")
+                    b.HasOne("Misty.Domain.Entities.Message", "Message")
                         .WithMany("Reactions")
                         .HasForeignKey("MessageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "User")
+                    b.HasOne("Misty.Domain.Entities.User", "User")
                         .WithMany("Reactions")
                         .HasForeignKey("ReactedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Message");
@@ -1013,30 +1018,30 @@ namespace Misty.Core.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ModerationAction", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.ModerationAction", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.Channel", "Channel")
+                    b.HasOne("Misty.Domain.Entities.Channel", "Channel")
                         .WithMany("ModerationActions")
                         .HasForeignKey("ChannelId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "CreatedBy")
+                    b.HasOne("Misty.Domain.Entities.User", "CreatedBy")
                         .WithMany("CreatedModerationActions")
                         .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "TargetUser")
+                    b.HasOne("Misty.Domain.Entities.User", "TargetUser")
                         .WithMany("TargetedModerationActions")
                         .HasForeignKey("TargetUserId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "UpdatedBy")
+                    b.HasOne("Misty.Domain.Entities.User", "UpdatedBy")
                         .WithMany("UpdatedModerationActions")
                         .HasForeignKey("UpdatedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Channel");
 
@@ -1047,15 +1052,25 @@ namespace Misty.Core.Migrations
                     b.Navigation("UpdatedBy");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.UserBlock", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.User", b =>
                 {
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "BlockedUser")
+                    b.HasOne("Misty.Domain.Entities.Attachment", "Avatar")
+                        .WithOne()
+                        .HasForeignKey("Misty.Domain.Entities.User", "AvatarAttachmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Avatar");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.UserBlock", b =>
+                {
+                    b.HasOne("Misty.Domain.Entities.User", "BlockedUser")
                         .WithMany("ReceivedBlocks")
                         .HasForeignKey("BlockedUserId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("Misty.Core.Data.Entities.ApplicationUser", "BlockingUser")
+                    b.HasOne("Misty.Domain.Entities.User", "BlockingUser")
                         .WithMany("InitiatedBlocks")
                         .HasForeignKey("BlockingUserId")
                         .OnDelete(DeleteBehavior.NoAction)
@@ -1066,7 +1081,46 @@ namespace Misty.Core.Migrations
                     b.Navigation("BlockingUser");
                 });
 
-            modelBuilder.Entity("Misty.Core.Data.Entities.ApplicationUser", b =>
+            modelBuilder.Entity("Misty.Domain.Entities.Channel", b =>
+                {
+                    b.Navigation("AuditLogs");
+
+                    b.Navigation("Members");
+
+                    b.Navigation("Messages");
+
+                    b.Navigation("ModerationActions");
+
+                    b.Navigation("Roles");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelMember", b =>
+                {
+                    b.Navigation("AssignedRoles");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.ChannelRole", b =>
+                {
+                    b.Navigation("MemberAssignments");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.Conversation", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.Message", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Reactions");
+
+                    b.Navigation("Replies");
+                });
+
+            modelBuilder.Entity("Misty.Domain.Entities.User", b =>
                 {
                     b.Navigation("AuditLogEntries");
 
@@ -1093,45 +1147,6 @@ namespace Misty.Core.Migrations
                     b.Navigation("UpdatedModerationActions");
 
                     b.Navigation("UploadedAttachments");
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.Channel", b =>
-                {
-                    b.Navigation("AuditLogs");
-
-                    b.Navigation("Members");
-
-                    b.Navigation("Messages");
-
-                    b.Navigation("ModerationActions");
-
-                    b.Navigation("Roles");
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelMember", b =>
-                {
-                    b.Navigation("AssignedRoles");
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.ChannelRole", b =>
-                {
-                    b.Navigation("MemberAssignments");
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.Conversation", b =>
-                {
-                    b.Navigation("Messages");
-
-                    b.Navigation("Participants");
-                });
-
-            modelBuilder.Entity("Misty.Core.Data.Entities.Message", b =>
-                {
-                    b.Navigation("Attachments");
-
-                    b.Navigation("Reactions");
-
-                    b.Navigation("Replies");
                 });
 #pragma warning restore 612, 618
         }

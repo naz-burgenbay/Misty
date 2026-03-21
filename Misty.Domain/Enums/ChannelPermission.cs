@@ -1,4 +1,4 @@
-namespace Misty.Application.Enums;
+namespace Misty.Domain.Enums;
 
 [Flags]
 public enum ChannelPermission : long

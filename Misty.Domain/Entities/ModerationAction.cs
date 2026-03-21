@@ -1,6 +1,6 @@
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class ModerationAction
     {
@@ -15,15 +15,12 @@ namespace Misty.Core.Data.Entities
         public bool IsActive { get; set; } = true;
         public DateTimeOffset? UpdatedAt { get; set; }
         public string? UpdatedByUserId { get; set; }
-        public string? TargetUserDisplayName { get; set; }
-        public string? CreatedByDisplayName { get; set; }
-        public string? UpdatedByDisplayName { get; set; }
-        public byte[] RowVersion { get; set; } = null!;
+        public byte[] Version { get; set; } = null!;
 
         // Navigation Properties
-        public Channel? Channel { get; set; }
-        public ApplicationUser? TargetUser { get; set; }
-        public ApplicationUser? CreatedBy { get; set; }
-        public ApplicationUser? UpdatedBy { get; set; }
+        public Channel Channel { get; set; } = null!;
+        public User TargetUser { get; set; } = null!;
+        public User CreatedBy { get; set; } = null!;
+        public User? UpdatedBy { get; set; }
     }
 }

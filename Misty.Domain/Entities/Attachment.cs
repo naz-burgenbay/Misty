@@ -1,6 +1,6 @@
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class Attachment
     {
@@ -15,7 +15,7 @@ namespace Misty.Core.Data.Entities
         public DateTimeOffset UploadedAt { get; set; }
 
         // Navigation Properties
-        public ApplicationUser? UploadedBy { get; set; }
+        public User? UploadedBy { get; set; }
         public Message? Message { get; set; }
     }
 }

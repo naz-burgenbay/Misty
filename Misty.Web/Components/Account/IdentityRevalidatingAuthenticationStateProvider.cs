@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
-using Misty.Core.Data;
-using Misty.Core.Data.Entities;
+using Misty.Infrastructure;
+using Misty.Infrastructure.Identity;
 
 namespace Misty.Web.Components.Account
 {

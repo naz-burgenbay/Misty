@@ -1,6 +1,6 @@
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class Channel
     {
@@ -13,17 +13,15 @@ namespace Misty.Core.Data.Entities
         public bool IsPrivate { get; set; }
         public string? InviteCode { get; set; }
         public bool IsAiAssistantEnabled { get; set; }
-        public required string CreatedByUserId { get; set; }
         public required string OwnerUserId { get; set; }
         public ChannelPermission DefaultPermissions { get; set; } = ChannelPermission.SendMessages | ChannelPermission.AddReactions | ChannelPermission.AttachFiles;
         public int MemberCount { get; set; }
         public DateTimeOffset? LastMessageAt { get; set; }
-        public byte[] RowVersion { get; set; } = null!;
+        public byte[] Version { get; set; } = null!;
 
         // Navigation Properties
         public Attachment? Icon { get; set; }
-        public ApplicationUser Creator { get; set; } = null!;
-        public ApplicationUser Owner { get; set; } = null!;
+        public User Owner { get; set; } = null!;
         public ICollection<ChannelMember> Members { get; set; } = new List<ChannelMember>();
         public ICollection<ChannelRole> Roles { get; set; } = new List<ChannelRole>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();

@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using Misty.Core.Data.Entities;
+using Misty.Domain.Entities;
+using Misty.Infrastructure.Identity;
 
-namespace Misty.Core.Data
+namespace Misty.Infrastructure
 {
     public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityDbContext<ApplicationUser>(options)
     {
+        public DbSet<User> DomainUsers => Set<User>();
         public DbSet<Channel> Channels => Set<Channel>();
         public DbSet<ChannelMember> ChannelMembers => Set<ChannelMember>();
         public DbSet<ChannelMemberRole> ChannelMemberRoles => Set<ChannelMemberRole>();
@@ -23,34 +25,41 @@ namespace Misty.Core.Data
         {
             base.OnModelCreating(builder);
 
-            // ApplicationUser is soft-deleted via anonymization. PII is scrubbed, DisplayName changed to "Deleted User", account disabled, but row is never physically removed.
-            // Anonymization Service will do these:
-            //   1. Scrub PII, turns DisplayName to "Deleted User"
-            //   2. Set DeletedAt, LockoutEnabled = true, LockoutEnd = MaxValue, AvatarAttachmentId → null
-            //   3. Hard-delete avatar Attachment row + blob storage file
-            //   4. Hard-delete all UserBlocks (in both directions)
-            //   5. Hard-delete all MessageReactions by user
-            //   6. Set LeftAt on all active ChannelMember records, hard-delete their ChannelMemberRole assignments
-            //   7. Null out Attachment.UploadedByUserId for user's uploaded attachments
-            //   8. Null out ChannelAuditLog.IpAddress for all entries by the user (bc IP is PII)
-            //   9. Messages, ConversationParticipants remain — they reference the anonymized row
-            //  10. ModerationAction rows remain as audit trail, FK references the anonymized row (Art. 6(1)(f) legitimate interest: moderation record integrity)
-            //  11. ChannelAuditLog entries remain (again, Art. 6(1)(f) legitimate interest: moderation record integrity)
-            builder.Entity<ApplicationUser>(e =>
+            builder.Entity<User>(e =>
             {
-                e.Property(u => u.DisplayName).HasMaxLength(100);
+                e.HasKey(u => u.UserId);
+                e.Property(u => u.UserId).HasMaxLength(450);
+
+                e.Property(u => u.Username)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                e.Property(u => u.NormalizedUsername)
+                    .IsRequired()
+                    .HasMaxLength(256);
+
+                e.HasIndex(u => u.NormalizedUsername)
+                    .IsUnique()
+                    .HasFilter("[DeletedAt] IS NULL");
+
+                e.Property(u => u.DisplayName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
                 e.Property(u => u.Bio).HasMaxLength(500);
+
+                e.Property(u => u.DeletedAt);
+                e.HasIndex(u => u.DeletedAt);
+
+                e.Property(u => u.Version)
+                    .IsRowVersion();
 
                 e.HasOne(u => u.Avatar)
                     .WithOne()
-                    .HasForeignKey<ApplicationUser>(u => u.AvatarAttachmentId)
-                    // Service handles attachment cleanup; detach reference only
+                    .HasForeignKey<User>(u => u.AvatarAttachmentId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // Channel is soft-deleted first (query-filtered out). Background process later permanently deletes the row, cascading to roles, memberships, messages, reactions, and moderation actions.
-            // OwnerUserId Ownership can be transferred by updating OwnerUserId.
-            // DefaultPermissions stores the @everyone base permissions (bitfield). Members without explicit role assignments get these permissions.
             builder.Entity<Channel>(e =>
             {
                 e.HasKey(c => c.ChannelId);
@@ -59,14 +68,12 @@ namespace Misty.Core.Data
                 e.Property(c => c.Name).HasMaxLength(100);
                 e.Property(c => c.Description).HasMaxLength(500);
                 e.Property(c => c.InviteCode).HasMaxLength(50);
-                e.Property(c => c.CreatedByUserId).HasMaxLength(450);
                 e.Property(c => c.OwnerUserId).HasMaxLength(450);
-                e.Property(c => c.RowVersion).IsRowVersion();
+                e.Property(c => c.Version).IsRowVersion();
 
                 e.HasOne(c => c.Icon)
                     .WithOne()
                     .HasForeignKey<Channel>(c => c.IconAttachmentId)
-                    // Service handles attachment cleanup; detach reference only
                     .OnDelete(DeleteBehavior.SetNull);
 
                 e.HasIndex(c => c.InviteCode)
@@ -79,20 +86,12 @@ namespace Misty.Core.Data
                 e.HasIndex(c => c.LastMessageAt)
                     .HasFilter("[LastMessageAt] IS NOT NULL");
 
-                e.HasOne(c => c.Creator)
-                    .WithMany(u => u.CreatedChannels)
-                    .HasForeignKey(c => c.CreatedByUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
-
                 e.HasOne(c => c.Owner)
                     .WithMany(u => u.OwnedChannels)
                     .HasForeignKey(c => c.OwnerUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // ChannelMember is soft-deleted via LeftAt timestamp. On leave/kick: roles removed by service, LeftAt set. On user anonymization: LeftAt set for all active memberships, roles removed by service. On channel permanent deletion: hard-deleted via cascade. User can rejoin, creating a new record.
             builder.Entity<ChannelMember>(e =>
             {
                 e.HasKey(cm => cm.ChannelMemberId);
@@ -109,8 +108,7 @@ namespace Misty.Core.Data
                 e.HasOne(cm => cm.User)
                     .WithMany(u => u.Memberships)
                     .HasForeignKey(cm => cm.UserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasIndex(cm => cm.LeftAt)
                     .HasFilter("[LeftAt] IS NULL");
@@ -118,18 +116,16 @@ namespace Misty.Core.Data
                 e.HasOne(cm => cm.Channel)
                     .WithMany(c => c.Members)
                     .HasForeignKey(cm => cm.ChannelId)
-                    // If channel deleted, remove all memberships
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // ChannelRole is hard-deleted. Role assignments cascade-delete. Permissions stored as a bitfield. Position determines hierarchy. Higher position = more authority. Users can only manage roles below their highest role's position.
             builder.Entity<ChannelRole>(e =>
             {
                 e.HasKey(cr => cr.ChannelRoleId);
                 e.HasQueryFilter(cr => cr.Channel.DeletedAt == null);
 
                 e.Property(cr => cr.Name).HasMaxLength(100);
-                e.Property(cr => cr.RowVersion).IsRowVersion();
+                e.Property(cr => cr.Version).IsRowVersion();
 
                 e.HasIndex(cr => new { cr.ChannelId, cr.Name }).IsUnique();
                 e.HasIndex(cr => new { cr.ChannelId, cr.Position });
@@ -137,11 +133,9 @@ namespace Misty.Core.Data
                 e.HasOne(cr => cr.Channel)
                     .WithMany(c => c.Roles)
                     .HasForeignKey(cr => cr.ChannelId)
-                    // If channel deleted, remove all roles
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ChannelMemberRole (join table) is hard-deleted when: (1) role is deleted (cascade), (2) member leaves/kicked (service), (3) user account is anonymized (service), (4) channel permanently deleted (cascade via channel to role).
             builder.Entity<ChannelMemberRole>(e =>
             {
                 e.HasKey(cmr => new { cmr.ChannelMemberId, cmr.ChannelRoleId });
@@ -150,18 +144,14 @@ namespace Misty.Core.Data
                 e.HasOne(cmr => cmr.Member)
                     .WithMany(cm => cm.AssignedRoles)
                     .HasForeignKey(cmr => cmr.ChannelMemberId)
-                    // NoAction avoids multiple cascade paths from Channel. Service removes assignments when member leaves
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasOne(cmr => cmr.Role)
                     .WithMany(cr => cr.MemberAssignments)
                     .HasForeignKey(cmr => cmr.ChannelRoleId)
-                    // If role deleted, remove all assignments
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Conversation: MaxParticipants enforced at service layer (SQL Server check constraints cannot reference other tables).
-            // When a new message is sent, the service MUST null HiddenAt for the other participant to resurface the conversation in their inbox.
             builder.Entity<Conversation>(e =>
             {
                 e.HasKey(c => c.ConversationId);
@@ -169,7 +159,6 @@ namespace Misty.Core.Data
                 e.HasIndex(c => c.LastMessageAt);
             });
 
-            // ConversationParticipant
             builder.Entity<ConversationParticipant>(e =>
             {
                 e.HasKey(cp => cp.ConversationParticipantId);
@@ -182,7 +171,6 @@ namespace Misty.Core.Data
                 e.HasOne(cp => cp.Conversation)
                     .WithMany(c => c.Participants)
                     .HasForeignKey(cp => cp.ConversationId)
-                    // If conversation deleted, remove all participants
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasIndex(cp => cp.HiddenAt)
@@ -191,11 +179,9 @@ namespace Misty.Core.Data
                 e.HasOne(cp => cp.User)
                     .WithMany(u => u.ConversationParticipants)
                     .HasForeignKey(cp => cp.UserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Messages are hard-deleted. On delete: reactions + attachments cascade-delete via DB. The service layer will collect Attachment.StoragePath values and delete the corresponding blob storage files before deleting the message (cascade will remove the DB rows, but not the blobs). Replies are preserved with ParentMessageId set to null (IsReply stays true, so the UI shows "Replied to a deleted message"). On channel/conversation permanent deletion: hard-deleted via cascade. Blob cleanup handled by the channel deletion background job.
             builder.Entity<Message>(e =>
             {
                 e.HasKey(m => m.MessageId);
@@ -203,7 +189,6 @@ namespace Misty.Core.Data
                 e.Property(m => m.Content).HasMaxLength(4000);
                 e.Property(m => m.AuthorUserId).HasMaxLength(450);
 
-                // Chronological retrieval with cursor pagination
                 e.HasIndex(m => new { m.ChannelId, m.SentAt, m.MessageId })
                     .HasFilter("[ChannelId] IS NOT NULL");
                 e.HasIndex(m => new { m.ConversationId, m.SentAt, m.MessageId })
@@ -220,29 +205,24 @@ namespace Misty.Core.Data
                     .WithMany(u => u.Messages)
                     .HasForeignKey(m => m.AuthorUserId)
                     .IsRequired()
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasOne(m => m.Channel)
                     .WithMany(c => c.Messages)
                     .HasForeignKey(m => m.ChannelId)
-                    // If channel deleted, remove all messages
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasOne(m => m.Conversation)
                     .WithMany(c => c.Messages)
                     .HasForeignKey(m => m.ConversationId)
-                    // If conversation deleted, remove all messages
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasOne(m => m.ParentMessage)
                     .WithMany(m => m.Replies)
                     .HasForeignKey(m => m.ParentMessageId)
-                    // Nulls child's ParentMessageId; IsReply preserves reply context
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // MessageReactions are hard-deleted. Removed when: (1) user unreacts, (2) parent message deleted (cascade), (3) user account is anonymized (service), (4) channel/conversation permanently deleted (cascade via message).
             builder.Entity<MessageReaction>(e =>
             {
                 e.HasKey(mr => mr.MessageReactionId);
@@ -256,29 +236,24 @@ namespace Misty.Core.Data
                 e.HasOne(mr => mr.Message)
                     .WithMany(m => m.Reactions)
                     .HasForeignKey(mr => mr.MessageId)
-                    // If message deleted, remove all reactions
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasOne(mr => mr.User)
                     .WithMany(u => u.Reactions)
                     .HasForeignKey(mr => mr.ReactedByUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ModerationAction cascades with channel permanent deletion. Active sanctions deactivated in service when revoked. On user anonymization: FK references the anonymized user row, but the snapshots of their display names remain as audit trail under Art. 6(1)(f) legitimate interest (moderation record integrity, abuse prevention).
             builder.Entity<ModerationAction>(e =>
             {
                 e.HasKey(ma => ma.ModerationActionId);
+                e.HasQueryFilter(ma => ma.Channel.DeletedAt == null);
 
                 e.Property(ma => ma.Reason).HasMaxLength(1000);
                 e.Property(ma => ma.TargetUserId).HasMaxLength(450);
                 e.Property(ma => ma.CreatedByUserId).HasMaxLength(450);
                 e.Property(ma => ma.UpdatedByUserId).HasMaxLength(450);
-                e.Property(ma => ma.TargetUserDisplayName).HasMaxLength(100);
-                e.Property(ma => ma.CreatedByDisplayName).HasMaxLength(100);
-                e.Property(ma => ma.UpdatedByDisplayName).HasMaxLength(100);
-                e.Property(ma => ma.RowVersion).IsRowVersion();
+                e.Property(ma => ma.Version).IsRowVersion();
 
                 e.HasIndex(ma => new { ma.ChannelId, ma.TargetUserId, ma.Type })
                     .IsUnique()
@@ -290,29 +265,24 @@ namespace Misty.Core.Data
                 e.HasOne(ma => ma.Channel)
                     .WithMany(c => c.ModerationActions)
                     .HasForeignKey(ma => ma.ChannelId)
-                    // If channel deleted, remove all moderation history
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasOne(ma => ma.TargetUser)
                     .WithMany(u => u.TargetedModerationActions)
                     .HasForeignKey(ma => ma.TargetUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasOne(ma => ma.CreatedBy)
                     .WithMany(u => u.CreatedModerationActions)
                     .HasForeignKey(ma => ma.CreatedByUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasOne(ma => ma.UpdatedBy)
                     .WithMany(u => u.UpdatedModerationActions)
                     .HasForeignKey(ma => ma.UpdatedByUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Attachments are hard-deleted when parent message is deleted (cascade). Avatar/icon references SetNull'd, attachment + blob cleaned up by service. On user anonymization: UploadedByUserId nullified by service.
             builder.Entity<Attachment>(e =>
             {
                 e.HasKey(a => a.AttachmentId);
@@ -331,17 +301,14 @@ namespace Misty.Core.Data
                 e.HasOne(a => a.UploadedBy)
                     .WithMany(u => u.UploadedAttachments)
                     .HasForeignKey(a => a.UploadedByUserId)
-                    // Anonymization nullifies this FK via service
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.SetNull);
 
                 e.HasOne(a => a.Message)
                     .WithMany(m => m.Attachments)
                     .HasForeignKey(a => a.MessageId)
-                    // If message hard-deleted, remove its attachments
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // UserBlock is hard-deleted when either user's account is anonymized, since the account can no longer interact.
             builder.Entity<UserBlock>(e =>
             {
                 e.HasKey(ub => ub.UserBlockId);
@@ -359,20 +326,18 @@ namespace Misty.Core.Data
                 e.HasOne(ub => ub.BlockingUser)
                     .WithMany(u => u.InitiatedBlocks)
                     .HasForeignKey(ub => ub.BlockingUserId)
-                    // Blocks hard-deleted by service on account anonymization
                     .OnDelete(DeleteBehavior.NoAction);
 
                 e.HasOne(ub => ub.BlockedUser)
                     .WithMany(u => u.ReceivedBlocks)
                     .HasForeignKey(ub => ub.BlockedUserId)
-                    // Blocks hard-deleted by service on account anonymization
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
-            // ChannelAuditLog: append-only audit trail for channel administrative actions (GDPR Art. 30). Retention: 90 days (a background job should periodically delete entries older than 90 days (GDPR Art. 5(1)(e) storage limitation)). On channel permanent deletion: cascade-deleted. On user anonymization: IpAddress nullified by service (step 8); ActorDisplayName snapshot preserves readability.
             builder.Entity<ChannelAuditLog>(e =>
             {
                 e.HasKey(a => a.ChannelAuditLogId);
+                e.HasQueryFilter(a => a.Channel.DeletedAt == null);
 
                 e.Property(a => a.TargetType).HasMaxLength(100);
                 e.Property(a => a.TargetId).HasMaxLength(256);
@@ -387,14 +352,12 @@ namespace Misty.Core.Data
                 e.HasOne(a => a.Channel)
                     .WithMany(c => c.AuditLogs)
                     .HasForeignKey(a => a.ChannelId)
-                    // If channel permanently deleted, remove all audit history
                     .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasOne(a => a.Actor)
                     .WithMany(u => u.AuditLogEntries)
                     .HasForeignKey(a => a.ActorUserId)
-                    // User rows are never hard-deleted
-                    .OnDelete(DeleteBehavior.NoAction);
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
 
@@ -459,7 +422,7 @@ namespace Misty.Core.Data
                 }
             }
 
-            // Apply MemberCount deltas to already-tracked Channel entities only. The service layer will(!) pre-load the Channel entity before adding/removing members. If the Channel is not tracked, the delta is silently skipped. The count will be reconciled by a periodic background job or on next Channel load. This avoids issuing DB queries inside SaveChanges and eliminates the RowVersion race condition on concurrent joins.
+            // Apply MemberCount deltas to already-tracked Channel entities only. The service layer will(!) pre-load the Channel entity before adding/removing members. If the Channel is not tracked, the delta is silently skipped. The count will be reconciled by a periodic background job or on next Channel load. This avoids issuing DB queries inside SaveChanges and eliminates the row version race condition on concurrent joins.
             foreach (var (channelId, delta) in memberCountDeltas)
             {
                 var channel = Set<Channel>().Local.FirstOrDefault(c => c.ChannelId == channelId);

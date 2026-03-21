@@ -1,4 +1,4 @@
-namespace Misty.Core.Data.Entities
+namespace Misty.Domain.Entities
 {
     public class ConversationParticipant
     {
@@ -11,6 +11,6 @@ namespace Misty.Core.Data.Entities
 
         // Navigation Properties
         public Conversation Conversation { get; set; } = null!;
-        public ApplicationUser? User { get; set; }
+        public User User { get; set; } = null!;
     }
 }
