@@ -13,7 +13,6 @@ namespace Misty.Domain.Entities
         public bool IsPrivate { get; set; }
         public string? InviteCode { get; set; }
         public bool IsAiAssistantEnabled { get; set; }
-        public required string CreatedByUserId { get; set; }
         public required string OwnerUserId { get; set; }
         public ChannelPermission DefaultPermissions { get; set; } = ChannelPermission.SendMessages | ChannelPermission.AddReactions | ChannelPermission.AttachFiles;
         public int MemberCount { get; set; }
@@ -22,7 +21,6 @@ namespace Misty.Domain.Entities
 
         // Navigation Properties
         public Attachment? Icon { get; set; }
-        public User Creator { get; set; } = null!;
         public User Owner { get; set; } = null!;
         public ICollection<ChannelMember> Members { get; set; } = new List<ChannelMember>();
         public ICollection<ChannelRole> Roles { get; set; } = new List<ChannelRole>();
