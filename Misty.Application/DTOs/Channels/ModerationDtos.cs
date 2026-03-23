@@ -1,4 +1,4 @@
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
 namespace Misty.Application.DTOs.Channels;
 

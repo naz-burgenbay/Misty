@@ -1,5 +1,5 @@
 using Misty.Application.DTOs;
-using Misty.Application.Enums;
+using Misty.Domain.Enums;
 
 namespace Misty.Application.Interfaces;
 
