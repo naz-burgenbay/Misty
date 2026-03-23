@@ -28,6 +28,8 @@ namespace Misty.Infrastructure
             builder.Entity<User>(e =>
             {
                 e.HasKey(u => u.UserId);
+                e.HasQueryFilter(u => u.DeletedAt == null);
+
                 e.Property(u => u.UserId).HasMaxLength(450);
 
                 e.Property(u => u.Username)
@@ -38,26 +40,24 @@ namespace Misty.Infrastructure
                     .IsRequired()
                     .HasMaxLength(256);
 
-                e.HasIndex(u => u.NormalizedUsername)
-                    .IsUnique()
-                    .HasFilter("[DeletedAt] IS NULL");
-
                 e.Property(u => u.DisplayName)
                     .IsRequired()
                     .HasMaxLength(100);
 
                 e.Property(u => u.Bio).HasMaxLength(500);
-
-                e.Property(u => u.DeletedAt);
-                e.HasIndex(u => u.DeletedAt);
-
-                e.Property(u => u.Version)
-                    .IsRowVersion();
+                e.Property(u => u.Version).IsRowVersion();
 
                 e.HasOne(u => u.Avatar)
                     .WithOne()
                     .HasForeignKey<User>(u => u.AvatarAttachmentId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(u => u.NormalizedUsername)
+                    .IsUnique()
+                    .HasFilter("[DeletedAt] IS NULL");
+
+                e.HasIndex(u => u.DeletedAt)
+                    .HasFilter("[DeletedAt] IS NOT NULL");
             });
 
             builder.Entity<Channel>(e =>
@@ -65,16 +65,28 @@ namespace Misty.Infrastructure
                 e.HasKey(c => c.ChannelId);
                 e.HasQueryFilter(c => c.DeletedAt == null);
 
-                e.Property(c => c.Name).HasMaxLength(100);
+                e.Property(c => c.Name)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
                 e.Property(c => c.Description).HasMaxLength(500);
                 e.Property(c => c.InviteCode).HasMaxLength(50);
-                e.Property(c => c.OwnerUserId).HasMaxLength(450);
+
+                e.Property(c => c.OwnerUserId)
+                    .IsRequired()
+                    .HasMaxLength(450);
+
                 e.Property(c => c.Version).IsRowVersion();
 
                 e.HasOne(c => c.Icon)
                     .WithOne()
                     .HasForeignKey<Channel>(c => c.IconAttachmentId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(c => c.Owner)
+                    .WithMany(u => u.OwnedChannels)
+                    .HasForeignKey(c => c.OwnerUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasIndex(c => c.InviteCode)
                     .IsUnique()
@@ -85,11 +97,6 @@ namespace Misty.Infrastructure
 
                 e.HasIndex(c => c.LastMessageAt)
                     .HasFilter("[LastMessageAt] IS NOT NULL");
-
-                e.HasOne(c => c.Owner)
-                    .WithMany(u => u.OwnedChannels)
-                    .HasForeignKey(c => c.OwnerUserId)
-                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<ChannelMember>(e =>
@@ -97,7 +104,19 @@ namespace Misty.Infrastructure
                 e.HasKey(cm => cm.ChannelMemberId);
                 e.HasQueryFilter(cm => cm.LeftAt == null);
 
-                e.Property(cm => cm.UserId).HasMaxLength(450);
+                e.Property(cm => cm.UserId)
+                    .IsRequired()
+                    .HasMaxLength(450);
+
+                e.HasOne(cm => cm.User)
+                    .WithMany(u => u.Memberships)
+                    .HasForeignKey(cm => cm.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(cm => cm.Channel)
+                    .WithMany(c => c.Members)
+                    .HasForeignKey(cm => cm.ChannelId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 e.HasIndex(cm => new { cm.ChannelId, cm.UserId })
                     .IsUnique()
@@ -105,18 +124,8 @@ namespace Misty.Infrastructure
 
                 e.HasIndex(cm => cm.UserId);
 
-                e.HasOne(cm => cm.User)
-                    .WithMany(u => u.Memberships)
-                    .HasForeignKey(cm => cm.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
                 e.HasIndex(cm => cm.LeftAt)
                     .HasFilter("[LeftAt] IS NULL");
-
-                e.HasOne(cm => cm.Channel)
-                    .WithMany(c => c.Members)
-                    .HasForeignKey(cm => cm.ChannelId)
-                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<ChannelRole>(e =>
@@ -127,13 +136,13 @@ namespace Misty.Infrastructure
                 e.Property(cr => cr.Name).HasMaxLength(100);
                 e.Property(cr => cr.Version).IsRowVersion();
 
-                e.HasIndex(cr => new { cr.ChannelId, cr.Name }).IsUnique();
-                e.HasIndex(cr => new { cr.ChannelId, cr.Position });
-
                 e.HasOne(cr => cr.Channel)
                     .WithMany(c => c.Roles)
                     .HasForeignKey(cr => cr.ChannelId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(cr => new { cr.ChannelId, cr.Name }).IsUnique();
+                e.HasIndex(cr => new { cr.ChannelId, cr.Position });
             });
 
             builder.Entity<ChannelMemberRole>(e =>
@@ -165,21 +174,21 @@ namespace Misty.Infrastructure
 
                 e.Property(cp => cp.UserId).HasMaxLength(450);
 
-                e.HasIndex(cp => new { cp.ConversationId, cp.UserId }).IsUnique();
-                e.HasIndex(cp => cp.UserId);
-
                 e.HasOne(cp => cp.Conversation)
                     .WithMany(c => c.Participants)
                     .HasForeignKey(cp => cp.ConversationId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                e.HasIndex(cp => cp.HiddenAt)
-                    .HasFilter("[HiddenAt] IS NULL");
-
                 e.HasOne(cp => cp.User)
                     .WithMany(u => u.ConversationParticipants)
                     .HasForeignKey(cp => cp.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(cp => new { cp.ConversationId, cp.UserId }).IsUnique();
+                e.HasIndex(cp => cp.UserId);
+
+                e.HasIndex(cp => cp.HiddenAt)
+                    .HasFilter("[HiddenAt] IS NULL");
             });
 
             builder.Entity<Message>(e =>
@@ -188,18 +197,6 @@ namespace Misty.Infrastructure
 
                 e.Property(m => m.Content).HasMaxLength(4000);
                 e.Property(m => m.AuthorUserId).HasMaxLength(450);
-
-                e.HasIndex(m => new { m.ChannelId, m.SentAt, m.MessageId })
-                    .HasFilter("[ChannelId] IS NOT NULL");
-                e.HasIndex(m => new { m.ConversationId, m.SentAt, m.MessageId })
-                    .HasFilter("[ConversationId] IS NOT NULL");
-                e.HasIndex(m => m.AuthorUserId);
-                e.HasIndex(m => m.ParentMessageId)
-                    .HasFilter("[ParentMessageId] IS NOT NULL");
-
-                e.ToTable(t => t.HasCheckConstraint(
-                    "CK_Message_Target",
-                    "([ChannelId] IS NOT NULL AND [ConversationId] IS NULL) OR ([ChannelId] IS NULL AND [ConversationId] IS NOT NULL)"));
 
                 e.HasOne(m => m.Author)
                     .WithMany(u => u.Messages)
@@ -221,6 +218,18 @@ namespace Misty.Infrastructure
                     .WithMany(m => m.Replies)
                     .HasForeignKey(m => m.ParentMessageId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(m => new { m.ChannelId, m.SentAt, m.MessageId })
+                    .HasFilter("[ChannelId] IS NOT NULL");
+                e.HasIndex(m => new { m.ConversationId, m.SentAt, m.MessageId })
+                    .HasFilter("[ConversationId] IS NOT NULL");
+                e.HasIndex(m => m.AuthorUserId);
+                e.HasIndex(m => m.ParentMessageId)
+                    .HasFilter("[ParentMessageId] IS NOT NULL");
+
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_Message_Target",
+                    "([ChannelId] IS NOT NULL AND [ConversationId] IS NULL) OR ([ChannelId] IS NULL AND [ConversationId] IS NOT NULL)"));
             });
 
             builder.Entity<MessageReaction>(e =>
@@ -229,9 +238,6 @@ namespace Misty.Infrastructure
 
                 e.Property(mr => mr.Emoji).HasMaxLength(64);
                 e.Property(mr => mr.ReactedByUserId).HasMaxLength(450);
-
-                e.HasIndex(mr => new { mr.MessageId, mr.ReactedByUserId, mr.Emoji }).IsUnique();
-                e.HasIndex(mr => mr.ReactedByUserId);
 
                 e.HasOne(mr => mr.Message)
                     .WithMany(m => m.Reactions)
@@ -242,6 +248,9 @@ namespace Misty.Infrastructure
                     .WithMany(u => u.Reactions)
                     .HasForeignKey(mr => mr.ReactedByUserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(mr => new { mr.MessageId, mr.ReactedByUserId, mr.Emoji }).IsUnique();
+                e.HasIndex(mr => mr.ReactedByUserId);
             });
 
             builder.Entity<ModerationAction>(e =>
@@ -254,13 +263,6 @@ namespace Misty.Infrastructure
                 e.Property(ma => ma.CreatedByUserId).HasMaxLength(450);
                 e.Property(ma => ma.UpdatedByUserId).HasMaxLength(450);
                 e.Property(ma => ma.Version).IsRowVersion();
-
-                e.HasIndex(ma => new { ma.ChannelId, ma.TargetUserId, ma.Type })
-                    .IsUnique()
-                    .HasFilter("[IsActive] = 1");
-
-                e.HasIndex(ma => ma.ExpiresAt)
-                    .HasFilter("[IsActive] = 1 AND [ExpiresAt] IS NOT NULL");
 
                 e.HasOne(ma => ma.Channel)
                     .WithMany(c => c.ModerationActions)
@@ -281,6 +283,13 @@ namespace Misty.Infrastructure
                     .WithMany(u => u.UpdatedModerationActions)
                     .HasForeignKey(ma => ma.UpdatedByUserId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(ma => new { ma.ChannelId, ma.TargetUserId, ma.Type })
+                    .IsUnique()
+                    .HasFilter("[IsActive] = 1");
+
+                e.HasIndex(ma => ma.ExpiresAt)
+                    .HasFilter("[IsActive] = 1 AND [ExpiresAt] IS NOT NULL");
             });
 
             builder.Entity<Attachment>(e =>
@@ -292,12 +301,6 @@ namespace Misty.Infrastructure
                 e.Property(a => a.StoragePath).HasMaxLength(2048);
                 e.Property(a => a.ContentType).HasMaxLength(256);
 
-                e.HasIndex(a => a.UploadedByUserId);
-                e.HasIndex(a => a.MessageId)
-                    .HasFilter("[MessageId] IS NOT NULL");
-                e.HasIndex(a => a.UploadedAt)
-                    .HasFilter("[MessageId] IS NULL");
-
                 e.HasOne(a => a.UploadedBy)
                     .WithMany(u => u.UploadedAttachments)
                     .HasForeignKey(a => a.UploadedByUserId)
@@ -307,6 +310,12 @@ namespace Misty.Infrastructure
                     .WithMany(m => m.Attachments)
                     .HasForeignKey(a => a.MessageId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(a => a.UploadedByUserId);
+                e.HasIndex(a => a.MessageId)
+                    .HasFilter("[MessageId] IS NOT NULL");
+                e.HasIndex(a => a.UploadedAt)
+                    .HasFilter("[MessageId] IS NULL");
             });
 
             builder.Entity<UserBlock>(e =>
@@ -315,13 +324,6 @@ namespace Misty.Infrastructure
 
                 e.Property(ub => ub.BlockingUserId).HasMaxLength(450);
                 e.Property(ub => ub.BlockedUserId).HasMaxLength(450);
-
-                e.HasIndex(ub => new { ub.BlockingUserId, ub.BlockedUserId }).IsUnique();
-                e.HasIndex(ub => ub.BlockedUserId);
-
-                e.ToTable(t => t.HasCheckConstraint(
-                    "CK_UserBlock_NoSelfBlock",
-                    "[BlockingUserId] <> [BlockedUserId]"));
 
                 e.HasOne(ub => ub.BlockingUser)
                     .WithMany(u => u.InitiatedBlocks)
@@ -332,6 +334,13 @@ namespace Misty.Infrastructure
                     .WithMany(u => u.ReceivedBlocks)
                     .HasForeignKey(ub => ub.BlockedUserId)
                     .OnDelete(DeleteBehavior.NoAction);
+
+                e.HasIndex(ub => new { ub.BlockingUserId, ub.BlockedUserId }).IsUnique();
+                e.HasIndex(ub => ub.BlockedUserId);
+
+                e.ToTable(t => t.HasCheckConstraint(
+                    "CK_UserBlock_NoSelfBlock",
+                    "[BlockingUserId] <> [BlockedUserId]"));
             });
 
             builder.Entity<ChannelAuditLog>(e =>
@@ -346,9 +355,6 @@ namespace Misty.Infrastructure
                 e.Property(a => a.IpAddress).HasMaxLength(45);
                 e.Property(a => a.ActorUserId).HasMaxLength(450);
 
-                e.HasIndex(a => new { a.ChannelId, a.CreatedAt });
-                e.HasIndex(a => a.ActorUserId);
-
                 e.HasOne(a => a.Channel)
                     .WithMany(c => c.AuditLogs)
                     .HasForeignKey(a => a.ChannelId)
@@ -358,6 +364,9 @@ namespace Misty.Infrastructure
                     .WithMany(u => u.AuditLogEntries)
                     .HasForeignKey(a => a.ActorUserId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(a => new { a.ChannelId, a.CreatedAt });
+                e.HasIndex(a => a.ActorUserId);
             });
         }
 
