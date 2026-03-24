@@ -230,8 +230,7 @@ namespace Misty.Infrastructure.Migrations
                     DefaultPermissions = table.Column<long>(type: "bigint", nullable: false),
                     MemberCount = table.Column<int>(type: "int", nullable: false),
                     LastMessageAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
-                    Version = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: true)
+                    Version = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -248,11 +247,6 @@ namespace Misty.Infrastructure.Migrations
                         principalTable: "DomainUsers",
                         principalColumn: "UserId",
                         onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_Channels_DomainUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "DomainUsers",
-                        principalColumn: "UserId");
                 });
 
             migrationBuilder.CreateTable(
@@ -666,11 +660,6 @@ namespace Misty.Infrastructure.Migrations
                 column: "OwnerUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Channels_UserId",
-                table: "Channels",
-                column: "UserId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_ConversationParticipants_ConversationId_UserId",
                 table: "ConversationParticipants",
                 columns: new[] { "ConversationId", "UserId" },
@@ -702,7 +691,8 @@ namespace Misty.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_DomainUsers_DeletedAt",
                 table: "DomainUsers",
-                column: "DeletedAt");
+                column: "DeletedAt",
+                filter: "[DeletedAt] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_DomainUsers_NormalizedUsername",
@@ -810,10 +800,6 @@ namespace Misty.Infrastructure.Migrations
 
             migrationBuilder.DropForeignKey(
                 name: "FK_Channels_DomainUsers_OwnerUserId",
-                table: "Channels");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_Channels_DomainUsers_UserId",
                 table: "Channels");
 
             migrationBuilder.DropForeignKey(

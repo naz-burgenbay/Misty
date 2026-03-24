@@ -253,9 +253,6 @@ namespace Misty.Infrastructure.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("UserId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<byte[]>("Version")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -279,8 +276,6 @@ namespace Misty.Infrastructure.Migrations
                         .HasFilter("[LastMessageAt] IS NOT NULL");
 
                     b.HasIndex("OwnerUserId");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Channels");
                 });
@@ -684,7 +679,8 @@ namespace Misty.Infrastructure.Migrations
                         .IsUnique()
                         .HasFilter("[AvatarAttachmentId] IS NOT NULL");
 
-                    b.HasIndex("DeletedAt");
+                    b.HasIndex("DeletedAt")
+                        .HasFilter("[DeletedAt] IS NOT NULL");
 
                     b.HasIndex("NormalizedUsername")
                         .IsUnique()
@@ -870,10 +866,6 @@ namespace Misty.Infrastructure.Migrations
                         .HasForeignKey("OwnerUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Misty.Domain.Entities.User", null)
-                        .WithMany("CreatedChannels")
-                        .HasForeignKey("UserId");
 
                     b.Navigation("Icon");
 
@@ -1125,8 +1117,6 @@ namespace Misty.Infrastructure.Migrations
                     b.Navigation("AuditLogEntries");
 
                     b.Navigation("ConversationParticipants");
-
-                    b.Navigation("CreatedChannels");
 
                     b.Navigation("CreatedModerationActions");
 

@@ -15,7 +15,6 @@ namespace Misty.Domain.Entities
         // Navigation Properties
         public Attachment? Avatar { get; set; }
         public ICollection<Attachment> UploadedAttachments { get; set; } = new List<Attachment>();
-        public ICollection<Channel> CreatedChannels { get; set; } = new List<Channel>();
         public ICollection<Channel> OwnedChannels { get; set; } = new List<Channel>();
         public ICollection<ChannelMember> Memberships { get; set; } = new List<ChannelMember>();
         public ICollection<Message> Messages { get; set; } = new List<Message>();
