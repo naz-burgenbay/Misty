@@ -197,6 +197,7 @@ namespace Misty.Infrastructure
 
                 e.Property(m => m.Content).HasMaxLength(4000);
                 e.Property(m => m.AuthorUserId).HasMaxLength(450);
+                e.Property(m => m.IdempotencyKey).HasMaxLength(256);
 
                 e.HasOne(m => m.Author)
                     .WithMany(u => u.Messages)
@@ -226,6 +227,9 @@ namespace Misty.Infrastructure
                 e.HasIndex(m => m.AuthorUserId);
                 e.HasIndex(m => m.ParentMessageId)
                     .HasFilter("[ParentMessageId] IS NOT NULL");
+                e.HasIndex(m => new { m.AuthorUserId, m.IdempotencyKey })
+                    .IsUnique()
+                    .HasFilter("[IdempotencyKey] IS NOT NULL");
 
                 e.ToTable(t => t.HasCheckConstraint(
                     "CK_Message_Target",

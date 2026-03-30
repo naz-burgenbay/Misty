@@ -13,8 +13,9 @@ public enum ChannelPermission : long
     // Moderation permissions
     DeleteMessages     = 1L << 10,
     MuteUsers          = 1L << 11,
-    BanUsers           = 1L << 12,
-    ViewAuditLog       = 1L << 13,
+    KickUsers          = 1L << 12,
+    BanUsers           = 1L << 13,
+    ViewAuditLog       = 1L << 14,
 
     // Channel management permissions
     EditChannel        = 1L << 20,

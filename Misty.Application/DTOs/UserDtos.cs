@@ -30,4 +30,5 @@ public record UpdateProfileRequest
 {
     public string? DisplayName { get; init; }
     public string? Bio { get; init; }
+    public byte[] Version { get; init; } = default!;
 }

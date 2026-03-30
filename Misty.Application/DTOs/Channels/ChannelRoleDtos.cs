@@ -31,4 +31,5 @@ public record UpdateChannelRoleRequest
     public string? Name { get; init; }
     public ChannelPermission? Permissions { get; init; }
     public int? Position { get; init; }
+    public byte[] Version { get; init; } = default!;
 }

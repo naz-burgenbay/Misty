@@ -31,6 +31,7 @@ public record ParentMessagePreview
 public record SendMessageRequest
 {
     public string Content { get; init; } = default!;
+    public string IdempotencyKey { get; init; } = default!;
     public Guid? ParentMessageId { get; init; }
     public IReadOnlyList<Guid>? AttachmentIds { get; init; }
 }

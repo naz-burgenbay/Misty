@@ -9,6 +9,7 @@ namespace Misty.Domain.Entities
         public string Content { get; set; } = string.Empty;
         public DateTimeOffset SentAt { get; set; }
         public DateTimeOffset? EditedAt { get; set; }
+        public string? IdempotencyKey { get; set; }
         public Guid? ParentMessageId { get; set; }
         public bool IsReply { get; set; }
 

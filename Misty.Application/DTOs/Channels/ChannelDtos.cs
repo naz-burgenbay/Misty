@@ -43,6 +43,7 @@ public record UpdateChannelRequest
     public bool? IsPrivate { get; init; }
     public bool? IsAiAssistantEnabled { get; init; }
     public ChannelPermission? DefaultPermissions { get; init; }
+    public byte[] Version { get; init; } = default!;
 }
 
 public record TransferOwnershipRequest
