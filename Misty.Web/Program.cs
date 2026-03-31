@@ -1,9 +1,13 @@
 using Azure.Storage.Blobs;
+using FluentValidation;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Misty.Application.Interfaces;
+using Misty.Application.Services;
+using Misty.Application.Validation;
 using Misty.Infrastructure;
+using Misty.Infrastructure.Data.Repositories;
 using Misty.Infrastructure.Identity;
 using Misty.Infrastructure.Services;
 using Misty.Web.Components;
@@ -53,6 +57,10 @@ var blobStorageOptions = builder.Configuration
 builder.Services.AddSingleton(blobStorageOptions);
 builder.Services.AddSingleton(_ => new BlobServiceClient(blobStorageOptions.ConnectionString));
 builder.Services.AddScoped<IBlobStorageProvider, BlobStorageProvider>();
+
+builder.Services.AddValidatorsFromAssemblyContaining<UploadAttachmentRequestValidator>();
+builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+builder.Services.AddScoped<IAttachmentService, AttachmentService>();
 
 var app = builder.Build();
 

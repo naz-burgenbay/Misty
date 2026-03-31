@@ -1,3 +1,5 @@
+using Misty.Domain.Enums;
+
 namespace Misty.Application.DTOs;
 
 public record AttachmentResponse
@@ -7,4 +9,12 @@ public record AttachmentResponse
     public required string ContentType { get; init; }
     public long FileSizeBytes { get; init; }
     public required string Url { get; init; }
+}
+
+public record UploadAttachmentRequest
+{
+    public required string FileName { get; init; }
+    public required string ContentType { get; init; }
+    public long FileSizeBytes { get; init; }
+    public AttachmentPurpose Purpose { get; init; }
 }
