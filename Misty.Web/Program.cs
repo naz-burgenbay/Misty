@@ -1,10 +1,13 @@
+using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Misty.Application.Interfaces;
+using Misty.Infrastructure;
 using Misty.Infrastructure.Identity;
+using Misty.Infrastructure.Services;
 using Misty.Web.Components;
 using Misty.Web.Components.Account;
-using Misty.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +44,15 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>();
+
+var blobStorageOptions = builder.Configuration
+    .GetSection(BlobStorageOptions.SectionName)
+    .Get<BlobStorageOptions>()
+    ?? throw new InvalidOperationException("BlobStorage configuration section is missing.");
+
+builder.Services.AddSingleton(blobStorageOptions);
+builder.Services.AddSingleton(_ => new BlobServiceClient(blobStorageOptions.ConnectionString));
+builder.Services.AddScoped<IBlobStorageProvider, BlobStorageProvider>();
 
 var app = builder.Build();
 
