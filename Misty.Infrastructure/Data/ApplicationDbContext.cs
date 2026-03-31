@@ -165,6 +165,12 @@ namespace Misty.Infrastructure
             {
                 e.HasKey(c => c.ConversationId);
 
+                e.Property(c => c.ParticipantLowUserId).HasMaxLength(450);
+                e.Property(c => c.ParticipantHighUserId).HasMaxLength(450);
+
+                e.HasIndex(c => new { c.ParticipantLowUserId, c.ParticipantHighUserId })
+                    .IsUnique();
+
                 e.HasIndex(c => c.LastMessageAt);
             });
 

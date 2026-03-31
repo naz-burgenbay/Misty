@@ -61,6 +61,8 @@ builder.Services.AddScoped<IBlobStorageProvider, BlobStorageProvider>();
 builder.Services.AddValidatorsFromAssemblyContaining<UploadAttachmentRequestValidator>();
 builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
 builder.Services.AddScoped<IAttachmentService, AttachmentService>();
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IConversationService, ConversationService>();
 
 var app = builder.Build();
 
