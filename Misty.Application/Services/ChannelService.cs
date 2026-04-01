@@ -272,13 +272,16 @@ public class ChannelService : IChannelService
                 _logger.LogInformation("Invite code generated for channel {ChannelId} by {UserId}", channelId, userId);
                 return inviteCode;
             }
-            catch (DuplicateException) when (attempt < maxAttempts)
+            catch (DuplicateException)
             {
+                if (attempt == maxAttempts)
+                    throw new BusinessRuleException("Failed to generate a unique invite code. Please try again.");
+
                 _logger.LogWarning("Invite code collision on attempt {Attempt} for channel {ChannelId}, retrying", attempt, channelId);
             }
         }
 
-        throw new BusinessRuleException("Failed to generate a unique invite code. Please try again.");
+        throw new InvalidOperationException("Unreachable");
     }
 
     // UC-5.8 Revoke Invite Code
@@ -311,7 +314,8 @@ public class ChannelService : IChannelService
         if (request.NewOwnerUserId == userId)
             throw new BusinessRuleException("Cannot transfer ownership to yourself.");
 
-        var oldOwnerMember = await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)!;
+        var oldOwnerMember = await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
+            ?? throw new NotFoundException("ChannelMember", userId);
         var newOwnerMember = await _channelRepository.GetActiveMemberAsync(channelId, request.NewOwnerUserId, ct)
             ?? throw new NotFoundException("ChannelMember", request.NewOwnerUserId);
 
