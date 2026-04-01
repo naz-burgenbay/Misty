@@ -4,7 +4,7 @@ using Misty.Domain.Enums;
 
 namespace Misty.Application.Services;
 
-internal static class PermissionHelper
+public static class PermissionHelper
 {
     public static ChannelPermission GetEffectivePermissions(ChannelMember member)
     {
