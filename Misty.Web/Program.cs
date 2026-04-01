@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Misty.Application.Interfaces;
+using Misty.Application.Interfaces.Channels;
 using Misty.Application.Services;
 using Misty.Application.Validation;
 using Misty.Infrastructure;
@@ -65,6 +66,8 @@ builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 builder.Services.AddScoped<IConversationService, ConversationService>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IMessageService, MessageService>();
+builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
+builder.Services.AddScoped<IChannelService, ChannelService>();
 
 var app = builder.Build();
 
