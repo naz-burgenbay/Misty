@@ -69,6 +69,7 @@ builder.Services.AddScoped<IMessageService, MessageService>();
 builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IChannelMemberService, ChannelMemberService>();
+builder.Services.AddScoped<IChannelRoleService, ChannelRoleService>();
 
 var app = builder.Build();
 

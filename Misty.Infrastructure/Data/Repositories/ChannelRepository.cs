@@ -106,6 +106,36 @@ public class ChannelRepository : IChannelRepository
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<ChannelRole>> GetChannelRolesAsync(
+        Guid channelId, CancellationToken ct = default)
+    {
+        return await _db.ChannelRoles
+            .Where(r => r.ChannelId == channelId)
+            .OrderBy(r => r.Position)
+            .ToListAsync(ct);
+    }
+
+    public async Task<ChannelRole?> GetRoleByIdAsync(Guid roleId, CancellationToken ct = default)
+    {
+        return await _db.ChannelRoles
+            .FirstOrDefaultAsync(r => r.ChannelRoleId == roleId, ct);
+    }
+
+    public async Task<int> GetAssignedMemberCountAsync(Guid channelRoleId, CancellationToken ct = default)
+    {
+        return await _db.ChannelMemberRoles
+            .Where(mr => mr.ChannelRoleId == channelRoleId)
+            .CountAsync(ct);
+    }
+
+    public async Task<Dictionary<Guid, int>> GetAssignedMemberCountsAsync(IEnumerable<Guid> roleIds, CancellationToken ct = default)
+    {
+        return await _db.ChannelMemberRoles
+            .Where(mr => roleIds.Contains(mr.ChannelRoleId))
+            .GroupBy(mr => mr.ChannelRoleId)
+            .ToDictionaryAsync(g => g.Key, g => g.Count(), ct);
+    }
+
     public async Task<Attachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken ct = default)
     {
         return await _db.Attachments
@@ -149,6 +179,11 @@ public class ChannelRepository : IChannelRepository
         await _db.ChannelRoles.AddAsync(role, ct);
     }
 
+    public void RemoveRole(ChannelRole role)
+    {
+        _db.ChannelRoles.Remove(role);
+    }
+
     public async Task AddMemberRoleAsync(ChannelMemberRole memberRole, CancellationToken ct = default)
     {
         await _db.ChannelMemberRoles.AddAsync(memberRole, ct);
@@ -178,6 +213,7 @@ public class ChannelRepository : IChannelRepository
 
     private const string InviteCodeIndexName = "IX_Channels_InviteCode";
     private const string MemberUniqueIndexName = "IX_ChannelMembers_ChannelId_UserId";
+    private const string RoleNameUniqueIndexName = "IX_ChannelRoles_ChannelId_Name";
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
@@ -196,6 +232,10 @@ public class ChannelRepository : IChannelRepository
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains(MemberUniqueIndexName, StringComparison.OrdinalIgnoreCase) == true)
         {
             throw new DuplicateException("ChannelMember", "ChannelId+UserId", "(duplicate)");
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains(RoleNameUniqueIndexName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            throw new DuplicateException("ChannelRole", "Name", "(duplicate)");
         }
     }
 }
