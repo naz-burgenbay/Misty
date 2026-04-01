@@ -58,6 +58,54 @@ public class ChannelRepository : IChannelRepository
             .FirstOrDefaultAsync(cm => cm.ChannelId == channelId && cm.UserId == userId && cm.LeftAt == null, ct);
     }
 
+    public async Task<ChannelMember?> GetMemberByIdAsync(Guid memberId, CancellationToken ct = default)
+    {
+        return await _db.ChannelMembers
+            .Include(cm => cm.User)
+                .ThenInclude(u => u.Avatar)
+            .Include(cm => cm.AssignedRoles)
+                .ThenInclude(ar => ar.Role)
+            .Include(cm => cm.Channel)
+            .FirstOrDefaultAsync(cm => cm.ChannelMemberId == memberId, ct);
+    }
+
+    public async Task<(IReadOnlyList<ChannelMember> Items, int TotalCount)> GetMembersPagedAsync(
+        Guid channelId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = _db.ChannelMembers
+            .Where(cm => cm.ChannelId == channelId && cm.LeftAt == null)
+            .OrderBy(cm => cm.JoinedAt);
+
+        var totalCount = await query.CountAsync(ct);
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(cm => cm.User)
+                .ThenInclude(u => u.Avatar)
+            .Include(cm => cm.AssignedRoles)
+                .ThenInclude(ar => ar.Role)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    public async Task<IReadOnlyList<ChannelRole>> GetChannelRolesByIdsAsync(
+        Guid channelId, IReadOnlyList<Guid> roleIds, CancellationToken ct = default)
+    {
+        return await _db.ChannelRoles
+            .Where(r => r.ChannelId == channelId && roleIds.Contains(r.ChannelRoleId))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ChannelMemberRole>> GetMemberRolesAsync(
+        Guid channelMemberId, CancellationToken ct = default)
+    {
+        return await _db.ChannelMemberRoles
+            .Where(mr => mr.ChannelMemberId == channelMemberId)
+            .ToListAsync(ct);
+    }
+
     public async Task<Attachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken ct = default)
     {
         return await _db.Attachments

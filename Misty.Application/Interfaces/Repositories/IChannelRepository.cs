@@ -8,6 +8,10 @@ public interface IChannelRepository
     Task<Channel?> GetByInviteCodeAsync(string inviteCode, CancellationToken ct = default);
     Task<IReadOnlyList<Channel>> GetUserChannelsAsync(string userId, CancellationToken ct = default);
     Task<ChannelMember?> GetActiveMemberAsync(Guid channelId, string userId, CancellationToken ct = default);
+    Task<ChannelMember?> GetMemberByIdAsync(Guid memberId, CancellationToken ct = default);
+    Task<(IReadOnlyList<ChannelMember> Items, int TotalCount)> GetMembersPagedAsync(Guid channelId, int page, int pageSize, CancellationToken ct = default);
+    Task<IReadOnlyList<ChannelRole>> GetChannelRolesByIdsAsync(Guid channelId, IReadOnlyList<Guid> roleIds, CancellationToken ct = default);
+    Task<IReadOnlyList<ChannelMemberRole>> GetMemberRolesAsync(Guid channelMemberId, CancellationToken ct = default);
     Task<Attachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken ct = default);
     Task<bool> HasActiveBanAsync(Guid channelId, string userId, CancellationToken ct = default);
     Task<int> GetUnreadCountAsync(Guid channelId, string userId, DateTimeOffset? lastReadAt, CancellationToken ct = default);
