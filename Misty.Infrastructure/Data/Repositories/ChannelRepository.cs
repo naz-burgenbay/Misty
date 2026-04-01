@@ -211,9 +211,74 @@ public class ChannelRepository : IChannelRepository
         await _db.ChannelAuditLogs.AddAsync(auditLog, ct);
     }
 
+    // Moderation
+
+    public async Task<ModerationAction?> GetModerationActionByIdAsync(Guid moderationActionId, CancellationToken ct = default)
+    {
+        return await _db.ModerationActions
+            .Include(ma => ma.TargetUser).ThenInclude(u => u.Avatar)
+            .Include(ma => ma.CreatedBy).ThenInclude(u => u.Avatar)
+            .Include(ma => ma.UpdatedBy!).ThenInclude(u => u.Avatar)
+            .FirstOrDefaultAsync(ma => ma.ModerationActionId == moderationActionId, ct);
+    }
+
+    public async Task<ModerationAction?> GetActiveModerationActionAsync(
+        Guid channelId, string targetUserId, ModerationType type, CancellationToken ct = default)
+    {
+        return await _db.ModerationActions
+            .FirstOrDefaultAsync(ma =>
+                ma.ChannelId == channelId &&
+                ma.TargetUserId == targetUserId &&
+                ma.Type == type &&
+                ma.IsActive &&
+                (ma.ExpiresAt == null || ma.ExpiresAt > DateTimeOffset.UtcNow), ct);
+    }
+
+    public async Task<(IReadOnlyList<ModerationAction> Items, int TotalCount)> GetModerationActionsPagedAsync(
+        Guid channelId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = _db.ModerationActions
+            .Where(ma => ma.ChannelId == channelId)
+            .OrderByDescending(ma => ma.StartAt);
+
+        var totalCount = await query.CountAsync(ct);
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(ma => ma.TargetUser)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    public async Task<(IReadOnlyList<ChannelAuditLog> Items, int TotalCount)> GetAuditLogsPagedAsync(
+        Guid channelId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = _db.ChannelAuditLogs
+            .Where(a => a.ChannelId == channelId)
+            .OrderByDescending(a => a.CreatedAt);
+
+        var totalCount = await query.CountAsync(ct);
+
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Include(a => a.Actor).ThenInclude(u => u.Avatar)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    public async Task AddModerationActionAsync(ModerationAction action, CancellationToken ct = default)
+    {
+        await _db.ModerationActions.AddAsync(action, ct);
+    }
+
     private const string InviteCodeIndexName = "IX_Channels_InviteCode";
     private const string MemberUniqueIndexName = "IX_ChannelMembers_ChannelId_UserId";
     private const string RoleNameUniqueIndexName = "IX_ChannelRoles_ChannelId_Name";
+    private const string ModerationActiveIndexName = "IX_ModerationActions_ChannelId_TargetUserId_Type";
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
@@ -236,6 +301,10 @@ public class ChannelRepository : IChannelRepository
         catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains(RoleNameUniqueIndexName, StringComparison.OrdinalIgnoreCase) == true)
         {
             throw new DuplicateException("ChannelRole", "Name", "(duplicate)");
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains(ModerationActiveIndexName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            throw new DuplicateException("ModerationAction", "ChannelId+TargetUserId+Type", "(active)");
         }
     }
 }

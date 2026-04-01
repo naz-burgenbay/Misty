@@ -1,4 +1,5 @@
 using Misty.Domain.Entities;
+using Misty.Domain.Enums;
 
 namespace Misty.Application.Interfaces;
 
@@ -28,5 +29,13 @@ public interface IChannelRepository
     Task<ChannelRole?> GetSystemRoleAsync(Guid channelId, string roleName, CancellationToken ct = default);
     Task<ChannelMemberRole?> GetMemberRoleAssignmentAsync(Guid channelMemberId, Guid channelRoleId, CancellationToken ct = default);
     Task AddAuditLogAsync(ChannelAuditLog auditLog, CancellationToken ct = default);
+
+    // Moderation
+    Task<ModerationAction?> GetModerationActionByIdAsync(Guid moderationActionId, CancellationToken ct = default);
+    Task<ModerationAction?> GetActiveModerationActionAsync(Guid channelId, string targetUserId, ModerationType type, CancellationToken ct = default);
+    Task<(IReadOnlyList<ModerationAction> Items, int TotalCount)> GetModerationActionsPagedAsync(Guid channelId, int page, int pageSize, CancellationToken ct = default);
+    Task<(IReadOnlyList<ChannelAuditLog> Items, int TotalCount)> GetAuditLogsPagedAsync(Guid channelId, int page, int pageSize, CancellationToken ct = default);
+    Task AddModerationActionAsync(ModerationAction action, CancellationToken ct = default);
+
     Task SaveChangesAsync(CancellationToken ct = default);
 }

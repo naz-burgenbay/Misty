@@ -4,6 +4,5 @@ public enum ModerationType
 {
     Mute,
     Ban,
-    SoftBan,
     Warning
 }

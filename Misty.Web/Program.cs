@@ -70,6 +70,7 @@ builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
 builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IChannelMemberService, ChannelMemberService>();
 builder.Services.AddScoped<IChannelRoleService, ChannelRoleService>();
+builder.Services.AddScoped<IModerationService, ModerationService>();
 
 var app = builder.Build();
 
