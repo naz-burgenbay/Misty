@@ -94,6 +94,13 @@ public class ConversationRepository : IConversationRepository
 
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyException("The record has been modified by another user.");
+        }
     }
 }

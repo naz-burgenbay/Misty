@@ -92,7 +92,7 @@ public class ChannelMemberService : IChannelMemberService
         Guid channelId, Guid memberId, string userId, CancellationToken ct = default)
     {
         var actorMember = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(actorMember, ChannelPermission.KickUsers);
+        PermissionHelper.EnsurePermission(actorMember, ChannelPermission.KickUsers);
 
         var targetMember = await _channelRepository.GetMemberByIdAsync(memberId, ct);
         if (targetMember is null || targetMember.ChannelId != channelId)
@@ -101,7 +101,7 @@ public class ChannelMemberService : IChannelMemberService
         if (targetMember.UserId == userId)
             throw new BusinessRuleException("You cannot kick yourself. Use leave instead.");
 
-        EnsureOutranks(actorMember, targetMember);
+        PermissionHelper.EnsureOutranks(actorMember, targetMember);
 
         if (targetMember.LeftAt is not null)
             return;
@@ -109,7 +109,8 @@ public class ChannelMemberService : IChannelMemberService
         targetMember.LeftAt = DateTimeOffset.UtcNow;
         // MemberCount is decremented automatically by ApplicationDbContext.OnBeforeSave
 
-        await AddAuditLogAsync(channelId, userId, AuditAction.MemberKicked, ct);
+        await AddAuditLogAsync(channelId, userId, AuditAction.MemberKicked, ct,
+            "ChannelMember", memberId.ToString());
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -141,13 +142,13 @@ public class ChannelMemberService : IChannelMemberService
         await _updateRolesValidator.ValidateAndThrowAsync(request, ct);
 
         var actorMember = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(actorMember, ChannelPermission.ManageRoles);
+        PermissionHelper.EnsurePermission(actorMember, ChannelPermission.ManageRoles);
 
         var targetMember = await _channelRepository.GetMemberByIdAsync(memberId, ct);
         if (targetMember is null || targetMember.ChannelId != channelId)
             throw new NotFoundException("ChannelMember", memberId);
 
-        EnsureOutranks(actorMember, targetMember);
+        PermissionHelper.EnsureOutranks(actorMember, targetMember);
 
         // Validate all provided role IDs exist and belong to this channel
         var desiredRoleIds = request.RoleIds.Distinct().ToList();
@@ -161,9 +162,9 @@ public class ChannelMemberService : IChannelMemberService
                 throw new NotFoundException("ChannelRole", missing);
             }
 
-            // Prevent manual assignment of the Owner system role
-            if (foundRoles.Any(r => r.IsSystemRole && r.Name == "Owner"))
-                throw new BusinessRuleException("The Owner role cannot be assigned manually. Use ownership transfer instead.");
+            // Prevent manual assignment of system roles
+            if (foundRoles.Any(r => r.IsSystemRole))
+                throw new BusinessRuleException("System roles cannot be assigned manually.");
         }
 
         // Compute diff between current and desired roles
@@ -177,7 +178,8 @@ public class ChannelMemberService : IChannelMemberService
         foreach (var assignment in toRemove)
         {
             _channelRepository.RemoveMemberRoleAsync(assignment);
-            await AddAuditLogAsync(channelId, userId, AuditAction.MemberRoleRemoved, ct);
+            await AddAuditLogAsync(channelId, userId, AuditAction.MemberRoleRemoved, ct,
+                "ChannelMember", memberId.ToString());
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -189,7 +191,8 @@ public class ChannelMemberService : IChannelMemberService
                 ChannelRoleId = roleId,
                 AssignedAt = now
             }, ct);
-            await AddAuditLogAsync(channelId, userId, AuditAction.MemberRoleAssigned, ct);
+            await AddAuditLogAsync(channelId, userId, AuditAction.MemberRoleAssigned, ct,
+                "ChannelMember", memberId.ToString());
         }
 
         await _channelRepository.SaveChangesAsync(ct);
@@ -212,51 +215,9 @@ public class ChannelMemberService : IChannelMemberService
             ?? throw new NotFoundException("Channel", channelId);
     }
 
-    private static ChannelPermission GetEffectivePermissions(ChannelMember member)
-    {
-        var perms = member.Channel.DefaultPermissions;
-
-        foreach (var assignedRole in member.AssignedRoles)
-            perms |= assignedRole.Role.Permissions;
-
-        if (member.Channel.OwnerUserId == member.UserId)
-            perms |= (ChannelPermission)~0L;
-
-        if (perms.HasFlag(ChannelPermission.Administrator))
-            perms |= (ChannelPermission)~0L;
-
-        return perms;
-    }
-
-    private static void EnsurePermission(ChannelMember member, ChannelPermission required)
-    {
-        var effective = GetEffectivePermissions(member);
-        if (!effective.HasFlag(required))
-            throw new BusinessRuleException($"You do not have the required permission: {required}.");
-    }
-
-    private static int GetHighestRolePosition(ChannelMember member)
-    {
-        if (member.Channel.OwnerUserId == member.UserId)
-            return int.MaxValue;
-
-        var max = 0;
-        foreach (var ar in member.AssignedRoles)
-        {
-            if (ar.Role.Position > max)
-                max = ar.Role.Position;
-        }
-        return max;
-    }
-
-    private static void EnsureOutranks(ChannelMember actor, ChannelMember target)
-    {
-        if (GetHighestRolePosition(actor) <= GetHighestRolePosition(target))
-            throw new BusinessRuleException("You cannot perform this action on a member with an equal or higher role.");
-    }
-
     private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct)
+        Guid channelId, string userId, AuditAction action, CancellationToken ct,
+        string? targetType = null, string? targetId = null)
     {
         var auditLog = new ChannelAuditLog
         {
@@ -264,6 +225,8 @@ public class ChannelMemberService : IChannelMemberService
             ChannelId = channelId,
             ActorUserId = userId,
             Action = action,
+            TargetType = targetType,
+            TargetId = targetId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

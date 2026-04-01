@@ -33,15 +33,14 @@ public class ChannelRepository : IChannelRepository
             .FirstOrDefaultAsync(c => c.InviteCode == inviteCode, ct);
     }
 
-    public async Task<IReadOnlyList<Channel>> GetUserChannelsAsync(string userId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ChannelMember>> GetUserChannelsAsync(string userId, CancellationToken ct = default)
     {
         return await _db.ChannelMembers
             .Where(cm => cm.UserId == userId && cm.LeftAt == null)
             .Include(cm => cm.Channel)
                 .ThenInclude(c => c.Icon)
-            .Select(cm => cm.Channel)
-            .OrderByDescending(c => c.LastMessageAt ?? DateTimeOffset.MinValue)
-            .ThenByDescending(c => c.CreatedAt)
+            .OrderByDescending(cm => cm.Channel.LastMessageAt ?? DateTimeOffset.MinValue)
+            .ThenByDescending(cm => cm.Channel.CreatedAt)
             .ToListAsync(ct);
     }
 
@@ -150,7 +149,8 @@ public class ChannelRepository : IChannelRepository
                 ma.ChannelId == channelId &&
                 ma.TargetUserId == userId &&
                 ma.Type == ModerationType.Ban &&
-                ma.IsActive, ct);
+                ma.IsActive &&
+                (ma.ExpiresAt == null || ma.ExpiresAt > DateTimeOffset.UtcNow), ct);
     }
 
     public async Task<int> GetUnreadCountAsync(Guid channelId, string userId, DateTimeOffset? lastReadAt, CancellationToken ct = default)

@@ -16,5 +16,8 @@ public enum AuditAction
     MemberRoleRemoved,
     MessageDeleted,
     InviteCreated,
-    InviteRevoked
+    InviteRevoked,
+    OwnershipTransferred,
+    MemberWarned,
+    WarningRevoked
 }

@@ -155,7 +155,8 @@ public class MessageRepository : IMessageRepository
                 ma.ChannelId == channelId &&
                 ma.TargetUserId == userId &&
                 ma.Type == ModerationType.Mute &&
-                ma.IsActive, ct);
+                ma.IsActive &&
+                (ma.ExpiresAt == null || ma.ExpiresAt > DateTimeOffset.UtcNow), ct);
     }
 
     public async Task<ChannelMember?> GetChannelMemberAsync(Guid channelId, string userId, CancellationToken ct = default)

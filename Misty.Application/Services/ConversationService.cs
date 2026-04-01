@@ -178,7 +178,9 @@ public class ConversationService : IConversationService
             ?? throw new NotFoundException("Conversation", conversationId);
 
         var participant = EnsureParticipant(conversation, userId);
-        participant.LastReadAt = lastReadAt;
+
+        var now = DateTimeOffset.UtcNow;
+        participant.LastReadAt = lastReadAt > now ? now : lastReadAt;
 
         await _conversationRepository.SaveChangesAsync(ct);
 

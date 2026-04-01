@@ -51,7 +51,7 @@ public class ModerationService : IModerationService
         if (targetMember.Channel.OwnerUserId == request.TargetUserId)
             throw new BusinessRuleException("The channel owner cannot be moderated.");
 
-        EnsureOutranks(member, targetMember);
+        PermissionHelper.EnsureOutranks(member, targetMember);
 
         var existing = await _channelRepository.GetActiveModerationActionAsync(
             channelId, request.TargetUserId, request.Type, ct);
@@ -77,7 +77,8 @@ public class ModerationService : IModerationService
         if (request.Type == ModerationType.Ban)
             targetMember.LeftAt = DateTimeOffset.UtcNow;
 
-        await AddAuditLogAsync(channelId, userId, GetCreateAuditAction(request.Type), ct);
+        await AddAuditLogAsync(channelId, userId, GetCreateAuditAction(request.Type), ct,
+            "User", request.TargetUserId);
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -111,7 +112,8 @@ public class ModerationService : IModerationService
         action.UpdatedByUserId = userId;
         // UpdatedAt is set automatically by OnBeforeSave
 
-        await AddAuditLogAsync(channelId, userId, GetRevokeAuditAction(action.Type), ct);
+        await AddAuditLogAsync(channelId, userId, GetRevokeAuditAction(action.Type), ct,
+            "ModerationAction", moderationActionId.ToString());
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -126,7 +128,7 @@ public class ModerationService : IModerationService
         Guid channelId, Guid moderationActionId, string userId, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ViewAuditLog);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ViewAuditLog);
 
         var action = await _channelRepository.GetModerationActionByIdAsync(moderationActionId, ct);
         if (action is null || action.ChannelId != channelId)
@@ -140,7 +142,7 @@ public class ModerationService : IModerationService
         Guid channelId, string userId, int page, int pageSize, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ViewAuditLog);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ViewAuditLog);
 
         var (items, totalCount) = await _channelRepository.GetModerationActionsPagedAsync(
             channelId, page, pageSize, ct);
@@ -159,7 +161,7 @@ public class ModerationService : IModerationService
         Guid channelId, string userId, int page, int pageSize, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ViewAuditLog);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ViewAuditLog);
 
         var (items, totalCount) = await _channelRepository.GetAuditLogsPagedAsync(
             channelId, page, pageSize, ct);
@@ -182,49 +184,6 @@ public class ModerationService : IModerationService
             ?? throw new NotFoundException("Channel", channelId);
     }
 
-    private static ChannelPermission GetEffectivePermissions(ChannelMember member)
-    {
-        var perms = member.Channel.DefaultPermissions;
-
-        foreach (var assignedRole in member.AssignedRoles)
-            perms |= assignedRole.Role.Permissions;
-
-        if (member.Channel.OwnerUserId == member.UserId)
-            perms |= (ChannelPermission)~0L;
-
-        if (perms.HasFlag(ChannelPermission.Administrator))
-            perms |= (ChannelPermission)~0L;
-
-        return perms;
-    }
-
-    private static void EnsurePermission(ChannelMember member, ChannelPermission required)
-    {
-        var effective = GetEffectivePermissions(member);
-        if (!effective.HasFlag(required))
-            throw new BusinessRuleException($"You do not have the required permission: {required}.");
-    }
-
-    private static int GetHighestRolePosition(ChannelMember member)
-    {
-        if (member.Channel.OwnerUserId == member.UserId)
-            return int.MaxValue;
-
-        var max = 0;
-        foreach (var ar in member.AssignedRoles)
-        {
-            if (ar.Role.Position > max)
-                max = ar.Role.Position;
-        }
-        return max;
-    }
-
-    private static void EnsureOutranks(ChannelMember actor, ChannelMember target)
-    {
-        if (GetHighestRolePosition(actor) <= GetHighestRolePosition(target))
-            throw new BusinessRuleException("You cannot moderate a member with an equal or higher role.");
-    }
-
     private static void EnsurePermissionForType(ChannelMember member, ModerationType type)
     {
         var required = type switch
@@ -235,14 +194,14 @@ public class ModerationService : IModerationService
             _ => throw new BusinessRuleException($"Unknown moderation type: {type}.")
         };
 
-        EnsurePermission(member, required);
+        PermissionHelper.EnsurePermission(member, required);
     }
 
     private static AuditAction GetCreateAuditAction(ModerationType type) => type switch
     {
         ModerationType.Mute => AuditAction.MemberMuted,
         ModerationType.Ban => AuditAction.MemberBanned,
-        ModerationType.Warning => AuditAction.MemberMuted,
+        ModerationType.Warning => AuditAction.MemberWarned,
         _ => AuditAction.MemberMuted
     };
 
@@ -250,12 +209,13 @@ public class ModerationService : IModerationService
     {
         ModerationType.Mute => AuditAction.MemberUnmuted,
         ModerationType.Ban => AuditAction.MemberUnbanned,
-        ModerationType.Warning => AuditAction.MemberUnmuted,
+        ModerationType.Warning => AuditAction.WarningRevoked,
         _ => AuditAction.MemberUnmuted
     };
 
     private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct)
+        Guid channelId, string userId, AuditAction action, CancellationToken ct,
+        string? targetType = null, string? targetId = null)
     {
         var auditLog = new ChannelAuditLog
         {
@@ -263,6 +223,8 @@ public class ModerationService : IModerationService
             ChannelId = channelId,
             ActorUserId = userId,
             Action = action,
+            TargetType = targetType,
+            TargetId = targetId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

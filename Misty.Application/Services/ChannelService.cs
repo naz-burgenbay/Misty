@@ -128,14 +128,14 @@ public class ChannelService : IChannelService
     public async Task<IReadOnlyList<ChannelSummary>> GetUserChannelsAsync(
         string userId, CancellationToken ct = default)
     {
-        var channels = await _channelRepository.GetUserChannelsAsync(userId, ct);
+        var members = await _channelRepository.GetUserChannelsAsync(userId, ct);
 
-        var summaries = new List<ChannelSummary>(channels.Count);
-        foreach (var channel in channels)
+        var summaries = new List<ChannelSummary>(members.Count);
+        foreach (var member in members)
         {
-            var member = await _channelRepository.GetActiveMemberAsync(channel.ChannelId, userId, ct);
+            var channel = member.Channel;
             var unreadCount = await _channelRepository.GetUnreadCountAsync(
-                channel.ChannelId, userId, member?.LastReadAt, ct);
+                channel.ChannelId, userId, member.LastReadAt, ct);
 
             string? iconUrl = null;
             if (channel.Icon is not null)
@@ -163,7 +163,7 @@ public class ChannelService : IChannelService
         await _updateValidator.ValidateAndThrowAsync(request, ct);
 
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.EditChannel);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.EditChannel);
 
         var channel = member.Channel;
 
@@ -198,13 +198,12 @@ public class ChannelService : IChannelService
     public async Task DeleteChannelAsync(
         Guid channelId, string userId, CancellationToken ct = default)
     {
-        var channel = await _channelRepository.GetByIdAsync(channelId, ct)
-            ?? throw new NotFoundException("Channel", channelId);
+        var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
 
-        if (channel.OwnerUserId != userId)
+        if (member.Channel.OwnerUserId != userId)
             throw new BusinessRuleException("Only the channel owner can delete the channel.");
 
-        channel.DeletedAt = DateTimeOffset.UtcNow;
+        member.Channel.DeletedAt = DateTimeOffset.UtcNow;
 
         await AddAuditLogAsync(channelId, userId, AuditAction.ChannelDeleted, ct);
         await _channelRepository.SaveChangesAsync(ct);
@@ -257,7 +256,7 @@ public class ChannelService : IChannelService
         Guid channelId, string userId, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ManageInvites);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ManageInvites);
 
         const int maxAttempts = 3;
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
@@ -267,8 +266,6 @@ public class ChannelService : IChannelService
 
             try
             {
-                await _channelRepository.SaveChangesAsync(ct);
-
                 await AddAuditLogAsync(channelId, userId, AuditAction.InviteCreated, ct);
                 await _channelRepository.SaveChangesAsync(ct);
 
@@ -289,7 +286,7 @@ public class ChannelService : IChannelService
         Guid channelId, string userId, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ManageInvites);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ManageInvites);
 
         member.Channel.InviteCode = null;
 
@@ -344,6 +341,8 @@ public class ChannelService : IChannelService
             }
         }
 
+        await AddAuditLogAsync(channelId, userId, AuditAction.OwnershipTransferred, ct,
+            "User", request.NewOwnerUserId);
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -356,7 +355,7 @@ public class ChannelService : IChannelService
         Guid channelId, string userId, Guid attachmentId, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.EditChannel);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.EditChannel);
 
         var attachment = await _channelRepository.GetAttachmentByIdAsync(attachmentId, ct)
             ?? throw new NotFoundException("Attachment", attachmentId);
@@ -379,7 +378,7 @@ public class ChannelService : IChannelService
         Guid channelId, string userId, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.EditChannel);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.EditChannel);
 
         member.Channel.IconAttachmentId = null;
 
@@ -397,31 +396,9 @@ public class ChannelService : IChannelService
             ?? throw new NotFoundException("Channel", channelId);
     }
 
-    private static ChannelPermission GetEffectivePermissions(ChannelMember member)
-    {
-        var perms = member.Channel.DefaultPermissions;
-
-        foreach (var assignedRole in member.AssignedRoles)
-            perms |= assignedRole.Role.Permissions;
-
-        if (member.Channel.OwnerUserId == member.UserId)
-            perms |= (ChannelPermission)~0L;
-
-        if (perms.HasFlag(ChannelPermission.Administrator))
-            perms |= (ChannelPermission)~0L;
-
-        return perms;
-    }
-
-    private static void EnsurePermission(ChannelMember member, ChannelPermission required)
-    {
-        var effective = GetEffectivePermissions(member);
-        if (!effective.HasFlag(required))
-            throw new BusinessRuleException($"You do not have the required permission: {required}.");
-    }
-
     private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct)
+        Guid channelId, string userId, AuditAction action, CancellationToken ct,
+        string? targetType = null, string? targetId = null)
     {
         var auditLog = new ChannelAuditLog
         {
@@ -429,6 +406,8 @@ public class ChannelService : IChannelService
             ChannelId = channelId,
             ActorUserId = userId,
             Action = action,
+            TargetType = targetType,
+            TargetId = targetId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -438,7 +417,7 @@ public class ChannelService : IChannelService
     private async Task<ChannelDetailResponse> ToDetailResponseAsync(
         Channel channel, ChannelMember member, CancellationToken ct)
     {
-        var effectivePermissions = GetEffectivePermissions(member);
+        var effectivePermissions = PermissionHelper.GetEffectivePermissions(member);
 
         string? iconUrl = null;
         if (channel.Icon is not null)

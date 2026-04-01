@@ -17,7 +17,7 @@ public class CreateModerationActionRequestValidator : AbstractValidator<CreateMo
             .WithMessage("'{PropertyName}' must not be whitespace-only.");
 
         RuleFor(x => x.ExpiresAt)
-            .GreaterThan(DateTimeOffset.UtcNow)
+            .Must(v => v!.Value > DateTimeOffset.UtcNow)
             .WithMessage("'{PropertyName}' must be in the future.")
             .When(x => x.ExpiresAt.HasValue);
     }

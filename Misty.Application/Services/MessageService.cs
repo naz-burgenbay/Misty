@@ -51,7 +51,7 @@ public class MessageService : IMessageService
         var member = await _messageRepository.GetChannelMemberAsync(channelId, userId, ct)
             ?? throw new NotFoundException("Channel", channelId);
 
-        var effectivePermissions = GetEffectivePermissions(member);
+        var effectivePermissions = PermissionHelper.GetEffectivePermissions(member);
         if (!effectivePermissions.HasFlag(ChannelPermission.SendMessages))
             throw new BusinessRuleException("You do not have permission to send messages in this channel.");
 
@@ -273,7 +273,7 @@ public class MessageService : IMessageService
             var member = await _messageRepository.GetChannelMemberAsync(message.ChannelId.Value, userId, ct);
             if (member is not null)
             {
-                var perms = GetEffectivePermissions(member);
+                var perms = PermissionHelper.GetEffectivePermissions(member);
                 isModerator = perms.HasFlag(ChannelPermission.DeleteMessages);
             }
         }
@@ -340,7 +340,7 @@ public class MessageService : IMessageService
             var member = await _messageRepository.GetChannelMemberAsync(message.ChannelId.Value, userId, ct)
                 ?? throw new NotFoundException("Channel", message.ChannelId.Value);
 
-            var perms = GetEffectivePermissions(member);
+            var perms = PermissionHelper.GetEffectivePermissions(member);
             if (!perms.HasFlag(ChannelPermission.AddReactions))
                 throw new BusinessRuleException("You do not have permission to add reactions in this channel.");
         }
@@ -384,23 +384,6 @@ public class MessageService : IMessageService
     }
 
     // Helpers
-
-    private static ChannelPermission GetEffectivePermissions(ChannelMember member)
-    {
-        var perms = member.Channel.DefaultPermissions;
-
-        foreach (var assignedRole in member.AssignedRoles)
-            perms |= assignedRole.Role.Permissions;
-
-        // Owner implicitly has all permissions
-        if (member.Channel.OwnerUserId == member.UserId)
-            perms |= (ChannelPermission)~0L;
-
-        if (perms.HasFlag(ChannelPermission.Administrator))
-            perms |= (ChannelPermission)~0L;
-
-        return perms;
-    }
 
     private async Task ClaimAttachmentsForMessageAsync(
         string userId, IReadOnlyList<Guid>? attachmentIds, Guid messageId, CancellationToken ct)

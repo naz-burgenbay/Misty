@@ -63,7 +63,7 @@ public class ChannelRoleService : IChannelRoleService
         await _createValidator.ValidateAndThrowAsync(request, ct);
 
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ManageRoles);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ManageRoles);
 
         var role = new ChannelRole
         {
@@ -77,7 +77,8 @@ public class ChannelRoleService : IChannelRoleService
         };
 
         await _channelRepository.AddRoleAsync(role, ct);
-        await AddAuditLogAsync(channelId, userId, AuditAction.RoleCreated, ct);
+        await AddAuditLogAsync(channelId, userId, AuditAction.RoleCreated, ct,
+            "ChannelRole", role.ChannelRoleId.ToString());
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -95,7 +96,7 @@ public class ChannelRoleService : IChannelRoleService
         await _updateValidator.ValidateAndThrowAsync(request, ct);
 
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ManageRoles);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ManageRoles);
 
         var role = await _channelRepository.GetRoleByIdAsync(roleId, ct);
         if (role is null || role.ChannelId != channelId)
@@ -119,7 +120,8 @@ public class ChannelRoleService : IChannelRoleService
 
         role.Version = request.Version;
 
-        await AddAuditLogAsync(channelId, userId, AuditAction.RoleUpdated, ct);
+        await AddAuditLogAsync(channelId, userId, AuditAction.RoleUpdated, ct,
+            "ChannelRole", roleId.ToString());
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -135,7 +137,7 @@ public class ChannelRoleService : IChannelRoleService
         Guid channelId, Guid roleId, string userId, byte[] version, CancellationToken ct = default)
     {
         var member = await GetRequiredActiveMemberAsync(channelId, userId, ct);
-        EnsurePermission(member, ChannelPermission.ManageRoles);
+        PermissionHelper.EnsurePermission(member, ChannelPermission.ManageRoles);
 
         var role = await _channelRepository.GetRoleByIdAsync(roleId, ct);
         if (role is null || role.ChannelId != channelId)
@@ -147,7 +149,8 @@ public class ChannelRoleService : IChannelRoleService
         role.Version = version;
         _channelRepository.RemoveRole(role);
 
-        await AddAuditLogAsync(channelId, userId, AuditAction.RoleDeleted, ct);
+        await AddAuditLogAsync(channelId, userId, AuditAction.RoleDeleted, ct,
+            "ChannelRole", roleId.ToString());
         await _channelRepository.SaveChangesAsync(ct);
 
         _logger.LogInformation(
@@ -164,31 +167,9 @@ public class ChannelRoleService : IChannelRoleService
             ?? throw new NotFoundException("Channel", channelId);
     }
 
-    private static ChannelPermission GetEffectivePermissions(ChannelMember member)
-    {
-        var perms = member.Channel.DefaultPermissions;
-
-        foreach (var assignedRole in member.AssignedRoles)
-            perms |= assignedRole.Role.Permissions;
-
-        if (member.Channel.OwnerUserId == member.UserId)
-            perms |= (ChannelPermission)~0L;
-
-        if (perms.HasFlag(ChannelPermission.Administrator))
-            perms |= (ChannelPermission)~0L;
-
-        return perms;
-    }
-
-    private static void EnsurePermission(ChannelMember member, ChannelPermission required)
-    {
-        var effective = GetEffectivePermissions(member);
-        if (!effective.HasFlag(required))
-            throw new BusinessRuleException($"You do not have the required permission: {required}.");
-    }
-
     private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct)
+        Guid channelId, string userId, AuditAction action, CancellationToken ct,
+        string? targetType = null, string? targetId = null)
     {
         var auditLog = new ChannelAuditLog
         {
@@ -196,6 +177,8 @@ public class ChannelRoleService : IChannelRoleService
             ChannelId = channelId,
             ActorUserId = userId,
             Action = action,
+            TargetType = targetType,
+            TargetId = targetId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

@@ -7,7 +7,7 @@ public interface IChannelRepository
 {
     Task<Channel?> GetByIdAsync(Guid channelId, CancellationToken ct = default);
     Task<Channel?> GetByInviteCodeAsync(string inviteCode, CancellationToken ct = default);
-    Task<IReadOnlyList<Channel>> GetUserChannelsAsync(string userId, CancellationToken ct = default);
+    Task<IReadOnlyList<ChannelMember>> GetUserChannelsAsync(string userId, CancellationToken ct = default);
     Task<ChannelMember?> GetActiveMemberAsync(Guid channelId, string userId, CancellationToken ct = default);
     Task<ChannelMember?> GetMemberByIdAsync(Guid memberId, CancellationToken ct = default);
     Task<(IReadOnlyList<ChannelMember> Items, int TotalCount)> GetMembersPagedAsync(Guid channelId, int page, int pageSize, CancellationToken ct = default);
