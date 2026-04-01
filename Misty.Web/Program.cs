@@ -71,6 +71,9 @@ builder.Services.AddScoped<IChannelService, ChannelService>();
 builder.Services.AddScoped<IChannelMemberService, ChannelMemberService>();
 builder.Services.AddScoped<IChannelRoleService, ChannelRoleService>();
 builder.Services.AddScoped<IModerationService, ModerationService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserBlockService, UserBlockService>();
 
 var app = builder.Build();
 
