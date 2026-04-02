@@ -11,7 +11,7 @@ using Misty.Domain.Enums;
 
 namespace Misty.Application.Services;
 
-public class ChannelService : IChannelService
+public class ChannelService : ChannelServiceBase, IChannelService
 {
     private readonly IChannelRepository _channelRepository;
     private readonly IBlobStorageProvider _blobStorage;
@@ -27,6 +27,7 @@ public class ChannelService : IChannelService
         IValidator<UpdateChannelRequest> updateValidator,
         IValidator<TransferOwnershipRequest> transferValidator,
         ILogger<ChannelService> logger)
+        : base(channelRepository)
     {
         _channelRepository = channelRepository;
         _blobStorage = blobStorage;
@@ -392,31 +393,6 @@ public class ChannelService : IChannelService
     }
 
     // Helpers
-
-    private async Task<ChannelMember> GetRequiredActiveMemberAsync(
-        Guid channelId, string userId, CancellationToken ct)
-    {
-        return await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
-            ?? throw new NotFoundException("Channel", channelId);
-    }
-
-    private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct,
-        string? targetType = null, string? targetId = null)
-    {
-        var auditLog = new ChannelAuditLog
-        {
-            ChannelAuditLogId = Guid.NewGuid(),
-            ChannelId = channelId,
-            ActorUserId = userId,
-            Action = action,
-            TargetType = targetType,
-            TargetId = targetId,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _channelRepository.AddAuditLogAsync(auditLog, ct);
-    }
 
     private async Task<ChannelDetailResponse> ToDetailResponseAsync(
         Channel channel, ChannelMember member, CancellationToken ct)

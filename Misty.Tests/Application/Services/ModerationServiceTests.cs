@@ -111,7 +111,12 @@ public class ModerationServiceTests
             Arg.Is<ModerationAction>(a => a.Type == type && a.TargetUserId == _targetUser.UserId),
             Arg.Any<CancellationToken>());
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == expectedAudit),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == expectedAudit &&
+                log.ActorUserId == _modUser.UserId &&
+                log.ChannelId == _channel.ChannelId &&
+                log.TargetType == "User" &&
+                log.TargetId == _targetUser.UserId),
             Arg.Any<CancellationToken>());
         await _channelRepo.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -297,7 +302,12 @@ public class ModerationServiceTests
         action.IsActive.Should().BeFalse();
         action.UpdatedByUserId.Should().Be(_modUser.UserId);
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == AuditAction.MemberUnmuted),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == AuditAction.MemberUnmuted &&
+                log.ActorUserId == _modUser.UserId &&
+                log.ChannelId == _channel.ChannelId &&
+                log.TargetType == "ModerationAction" &&
+                log.TargetId == action.ModerationActionId.ToString()),
             Arg.Any<CancellationToken>());
         await _channelRepo.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

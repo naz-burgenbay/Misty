@@ -128,7 +128,10 @@ public class ChannelServiceTests
         _channel.Name.Should().Be("Renamed");
         _channel.Description.Should().Be("New desc");
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == AuditAction.ChannelUpdated),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == AuditAction.ChannelUpdated &&
+                log.ActorUserId == editorUser.UserId &&
+                log.ChannelId == _channel.ChannelId),
             Arg.Any<CancellationToken>());
     }
 
@@ -151,7 +154,10 @@ public class ChannelServiceTests
 
         _channel.DeletedAt.Should().NotBeNull();
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == AuditAction.ChannelDeleted),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == AuditAction.ChannelDeleted &&
+                log.ActorUserId == _owner.UserId &&
+                log.ChannelId == _channel.ChannelId),
             Arg.Any<CancellationToken>());
         await _channelRepo.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -254,7 +260,10 @@ public class ChannelServiceTests
         result.Should().NotBeNullOrEmpty();
         _channel.InviteCode.Should().Be(result);
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == AuditAction.InviteCreated),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == AuditAction.InviteCreated &&
+                log.ActorUserId == inviteUser.UserId &&
+                log.ChannelId == _channel.ChannelId),
             Arg.Any<CancellationToken>());
     }
 
@@ -306,7 +315,10 @@ public class ChannelServiceTests
 
         _channel.InviteCode.Should().BeNull();
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == AuditAction.InviteRevoked),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == AuditAction.InviteRevoked &&
+                log.ActorUserId == _owner.UserId &&
+                log.ChannelId == _channel.ChannelId),
             Arg.Any<CancellationToken>());
     }
 
@@ -337,7 +349,12 @@ public class ChannelServiceTests
             Arg.Any<CancellationToken>());
         // Audit log
         await _channelRepo.Received(1).AddAuditLogAsync(
-            Arg.Is<ChannelAuditLog>(log => log.Action == AuditAction.OwnershipTransferred),
+            Arg.Is<ChannelAuditLog>(log =>
+                log.Action == AuditAction.OwnershipTransferred &&
+                log.ActorUserId == _owner.UserId &&
+                log.ChannelId == _channel.ChannelId &&
+                log.TargetType == "User" &&
+                log.TargetId == _memberUser.UserId),
             Arg.Any<CancellationToken>());
     }
 
