@@ -334,6 +334,22 @@ public class CreateModerationActionRequestValidatorTests
     }
 
     [Fact]
+    public async Task Type_InvalidEnum_Fails()
+    {
+        var request = new CreateModerationActionRequest
+        {
+            TargetUserId = "user-1",
+            Reason = "Spam",
+            Type = (ModerationType)999
+        };
+
+        var result = await _sut.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Type");
+    }
+
+    [Fact]
     public async Task ExpiresAt_InPast_Fails()
     {
         var request = new CreateModerationActionRequest
@@ -402,6 +418,17 @@ public class RevokeModerationActionRequestValidatorTests
         var result = await _sut.ValidateAsync(request);
 
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Reason_WhitespaceOnly_Fails()
+    {
+        var request = new RevokeModerationActionRequest { Reason = "   " };
+
+        var result = await _sut.ValidateAsync(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Reason");
     }
 
     [Fact]
