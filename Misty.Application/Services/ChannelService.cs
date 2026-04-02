@@ -11,7 +11,7 @@ using Misty.Domain.Enums;
 
 namespace Misty.Application.Services;
 
-public class ChannelService : IChannelService
+public class ChannelService : ChannelServiceBase, IChannelService
 {
     private readonly IChannelRepository _channelRepository;
     private readonly IBlobStorageProvider _blobStorage;
@@ -27,6 +27,7 @@ public class ChannelService : IChannelService
         IValidator<UpdateChannelRequest> updateValidator,
         IValidator<TransferOwnershipRequest> transferValidator,
         ILogger<ChannelService> logger)
+        : base(channelRepository)
     {
         _channelRepository = channelRepository;
         _blobStorage = blobStorage;
@@ -272,13 +273,16 @@ public class ChannelService : IChannelService
                 _logger.LogInformation("Invite code generated for channel {ChannelId} by {UserId}", channelId, userId);
                 return inviteCode;
             }
-            catch (DuplicateException) when (attempt < maxAttempts)
+            catch (DuplicateException)
             {
+                if (attempt == maxAttempts)
+                    throw new BusinessRuleException("Failed to generate a unique invite code. Please try again.");
+
                 _logger.LogWarning("Invite code collision on attempt {Attempt} for channel {ChannelId}, retrying", attempt, channelId);
             }
         }
 
-        throw new BusinessRuleException("Failed to generate a unique invite code. Please try again.");
+        throw new InvalidOperationException("Unreachable");
     }
 
     // UC-5.8 Revoke Invite Code
@@ -311,7 +315,8 @@ public class ChannelService : IChannelService
         if (request.NewOwnerUserId == userId)
             throw new BusinessRuleException("Cannot transfer ownership to yourself.");
 
-        var oldOwnerMember = await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)!;
+        var oldOwnerMember = await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
+            ?? throw new NotFoundException("ChannelMember", userId);
         var newOwnerMember = await _channelRepository.GetActiveMemberAsync(channelId, request.NewOwnerUserId, ct)
             ?? throw new NotFoundException("ChannelMember", request.NewOwnerUserId);
 
@@ -388,31 +393,6 @@ public class ChannelService : IChannelService
     }
 
     // Helpers
-
-    private async Task<ChannelMember> GetRequiredActiveMemberAsync(
-        Guid channelId, string userId, CancellationToken ct)
-    {
-        return await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
-            ?? throw new NotFoundException("Channel", channelId);
-    }
-
-    private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct,
-        string? targetType = null, string? targetId = null)
-    {
-        var auditLog = new ChannelAuditLog
-        {
-            ChannelAuditLogId = Guid.NewGuid(),
-            ChannelId = channelId,
-            ActorUserId = userId,
-            Action = action,
-            TargetType = targetType,
-            TargetId = targetId,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _channelRepository.AddAuditLogAsync(auditLog, ct);
-    }
 
     private async Task<ChannelDetailResponse> ToDetailResponseAsync(
         Channel channel, ChannelMember member, CancellationToken ct)

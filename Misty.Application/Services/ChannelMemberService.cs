@@ -11,7 +11,7 @@ using Misty.Domain.Enums;
 
 namespace Misty.Application.Services;
 
-public class ChannelMemberService : IChannelMemberService
+public class ChannelMemberService : ChannelServiceBase, IChannelMemberService
 {
     private readonly IChannelRepository _channelRepository;
     private readonly IBlobStorageProvider _blobStorage;
@@ -25,6 +25,7 @@ public class ChannelMemberService : IChannelMemberService
         IValidator<MarkChannelReadRequest> markReadValidator,
         IValidator<UpdateChannelMemberRolesRequest> updateRolesValidator,
         ILogger<ChannelMemberService> logger)
+        : base(channelRepository)
     {
         _channelRepository = channelRepository;
         _blobStorage = blobStorage;
@@ -207,31 +208,6 @@ public class ChannelMemberService : IChannelMemberService
     }
 
     // Helpers
-
-    private async Task<ChannelMember> GetRequiredActiveMemberAsync(
-        Guid channelId, string userId, CancellationToken ct)
-    {
-        return await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
-            ?? throw new NotFoundException("Channel", channelId);
-    }
-
-    private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct,
-        string? targetType = null, string? targetId = null)
-    {
-        var auditLog = new ChannelAuditLog
-        {
-            ChannelAuditLogId = Guid.NewGuid(),
-            ChannelId = channelId,
-            ActorUserId = userId,
-            Action = action,
-            TargetType = targetType,
-            TargetId = targetId,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _channelRepository.AddAuditLogAsync(auditLog, ct);
-    }
 
     private async Task<ChannelMemberResponse> ToMemberResponseAsync(
         ChannelMember member, CancellationToken ct)

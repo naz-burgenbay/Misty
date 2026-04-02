@@ -9,7 +9,7 @@ using Misty.Domain.Enums;
 
 namespace Misty.Application.Services;
 
-public class ChannelRoleService : IChannelRoleService
+public class ChannelRoleService : ChannelServiceBase, IChannelRoleService
 {
     private readonly IChannelRepository _channelRepository;
     private readonly IValidator<CreateChannelRoleRequest> _createValidator;
@@ -21,6 +21,7 @@ public class ChannelRoleService : IChannelRoleService
         IValidator<CreateChannelRoleRequest> createValidator,
         IValidator<UpdateChannelRoleRequest> updateValidator,
         ILogger<ChannelRoleService> logger)
+        : base(channelRepository)
     {
         _channelRepository = channelRepository;
         _createValidator = createValidator;
@@ -159,31 +160,6 @@ public class ChannelRoleService : IChannelRoleService
     }
 
     // Helpers
-
-    private async Task<ChannelMember> GetRequiredActiveMemberAsync(
-        Guid channelId, string userId, CancellationToken ct)
-    {
-        return await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
-            ?? throw new NotFoundException("Channel", channelId);
-    }
-
-    private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct,
-        string? targetType = null, string? targetId = null)
-    {
-        var auditLog = new ChannelAuditLog
-        {
-            ChannelAuditLogId = Guid.NewGuid(),
-            ChannelId = channelId,
-            ActorUserId = userId,
-            Action = action,
-            TargetType = targetType,
-            TargetId = targetId,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _channelRepository.AddAuditLogAsync(auditLog, ct);
-    }
 
     private static ChannelRoleResponse ToRoleResponse(ChannelRole role, int assignedMemberCount)
     {

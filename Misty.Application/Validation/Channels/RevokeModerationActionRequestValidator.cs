@@ -9,6 +9,8 @@ public class RevokeModerationActionRequestValidator : AbstractValidator<RevokeMo
     {
         RuleFor(x => x.Reason)
             .MaximumLength(1000)
+            .Must(v => !string.IsNullOrWhiteSpace(v))
+            .WithMessage("'{PropertyName}' must not be whitespace-only.")
             .When(x => x.Reason is not null);
     }
 }

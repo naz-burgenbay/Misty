@@ -11,7 +11,7 @@ using Misty.Domain.Enums;
 
 namespace Misty.Application.Services;
 
-public class ModerationService : IModerationService
+public class ModerationService : ChannelServiceBase, IModerationService
 {
     private readonly IChannelRepository _channelRepository;
     private readonly IBlobStorageProvider _blobStorage;
@@ -25,6 +25,7 @@ public class ModerationService : IModerationService
         IValidator<CreateModerationActionRequest> createValidator,
         IValidator<RevokeModerationActionRequest> revokeValidator,
         ILogger<ModerationService> logger)
+        : base(channelRepository)
     {
         _channelRepository = channelRepository;
         _blobStorage = blobStorage;
@@ -177,13 +178,6 @@ public class ModerationService : IModerationService
 
     // Helpers
 
-    private async Task<ChannelMember> GetRequiredActiveMemberAsync(
-        Guid channelId, string userId, CancellationToken ct)
-    {
-        return await _channelRepository.GetActiveMemberAsync(channelId, userId, ct)
-            ?? throw new NotFoundException("Channel", channelId);
-    }
-
     private static void EnsurePermissionForType(ChannelMember member, ModerationType type)
     {
         var required = type switch
@@ -212,24 +206,6 @@ public class ModerationService : IModerationService
         ModerationType.Warning => AuditAction.WarningRevoked,
         _ => AuditAction.MemberUnmuted
     };
-
-    private async Task AddAuditLogAsync(
-        Guid channelId, string userId, AuditAction action, CancellationToken ct,
-        string? targetType = null, string? targetId = null)
-    {
-        var auditLog = new ChannelAuditLog
-        {
-            ChannelAuditLogId = Guid.NewGuid(),
-            ChannelId = channelId,
-            ActorUserId = userId,
-            Action = action,
-            TargetType = targetType,
-            TargetId = targetId,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-
-        await _channelRepository.AddAuditLogAsync(auditLog, ct);
-    }
 
     private async Task<UserSummary> ToUserSummaryAsync(User user, CancellationToken ct)
     {
