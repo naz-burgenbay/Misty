@@ -14,12 +14,13 @@ public class User
     public DateTime? DeletedAt { get; private set; }
     public byte[] Version { get; private set; } = null!;
 
-    public static User Create(Guid id, string username, string displayName, string passwordHash)
+    public static User Create(Guid id, string username, string displayName)
         => new()
         {
             Id = id,
             Username = username,
             DisplayName = displayName,
-            PasswordHash = passwordHash,
         };
+
+    public void SetPasswordHash(string passwordHash) => PasswordHash = passwordHash;
 }
