@@ -10,12 +10,18 @@ internal sealed class LoginCommandHandler : IRequestHandler<LoginCommand, LoginR
     private readonly IUserRepository _users;
     private readonly IPasswordHasher<User> _hasher;
     private readonly ITokenService _tokens;
+    private readonly IRefreshTokenRepository _refreshTokens;
 
-    public LoginCommandHandler(IUserRepository users, IPasswordHasher<User> hasher, ITokenService tokens)
+    public LoginCommandHandler(
+        IUserRepository users,
+        IPasswordHasher<User> hasher,
+        ITokenService tokens,
+        IRefreshTokenRepository refreshTokens)
     {
         _users = users;
         _hasher = hasher;
         _tokens = tokens;
+        _refreshTokens = refreshTokens;
     }
 
     public async Task<LoginResponse> Handle(LoginCommand cmd, CancellationToken ct)
@@ -29,7 +35,11 @@ internal sealed class LoginCommandHandler : IRequestHandler<LoginCommand, LoginR
         if (result == PasswordVerificationResult.Failed)
             throw new UnauthorizedException();
 
-        var token = _tokens.CreateAccessToken(user);
-        return new LoginResponse(token, user.Id);
+        var accessToken = _tokens.CreateAccessToken(user);
+        var (refreshTokenPlaintext, refreshTokenHash, expiresAt) = _tokens.CreateRefreshToken();
+        var refreshToken = RefreshToken.Create(user.Id, refreshTokenHash, expiresAt);
+        await _refreshTokens.AddAsync(refreshToken, ct);
+
+        return new LoginResponse(accessToken, refreshTokenPlaintext, user.Id);
     }
 }

@@ -36,7 +36,7 @@ public sealed class AuthController : ControllerBase
         var response = await _mediator.Send(
             new LoginCommand(request.Username, request.Password), ct);
 
-        return Ok(new { accessToken = response.AccessToken, userId = response.UserId });
+        return Ok(new { accessToken = response.AccessToken, refreshToken = response.RefreshToken, userId = response.UserId });
     }
 
     [HttpGet("me")]
@@ -49,7 +49,18 @@ public sealed class AuthController : ControllerBase
         var username = User.FindFirst(JwtRegisteredClaimNames.PreferredUsername)!.Value;
         return Ok(new { userId = Guid.Parse(userId), username });
     }
+
+    [HttpPost("refresh")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Refresh(RefreshRequest request, CancellationToken ct)
+    {
+        var response = await _mediator.Send(new RefreshCommand(request.RefreshToken), ct);
+        return Ok(new { accessToken = response.AccessToken, refreshToken = response.RefreshToken });
+    }
 }
 
 public record RegisterUserRequest(string Username, string DisplayName, string Password);
 public record LoginRequest(string Username, string Password);
+public record RefreshRequest(string RefreshToken);
