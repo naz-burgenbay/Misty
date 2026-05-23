@@ -42,6 +42,12 @@ public class UserRepository : IUserRepository
         }
     }
 
+    public async Task UpdateAvatarUrlAsync(User user, string avatarUrl, CancellationToken ct = default)
+    {
+        user.UpdateAvatarUrl(avatarUrl);
+        await _db.SaveChangesAsync(ct);
+    }
+
     public async Task SoftDeleteAsync(User user, CancellationToken ct = default)
     {
         user.SoftDelete();

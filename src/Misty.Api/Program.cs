@@ -1,3 +1,4 @@
+using Azure.Storage.Blobs;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -124,6 +125,11 @@ builder.Services.AddOpenTelemetry()
         if (builder.Environment.IsDevelopment())
             tracing.AddConsoleExporter();
     });
+
+var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorage")
+    ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
+builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
+builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
 
 var app = builder.Build();
 
