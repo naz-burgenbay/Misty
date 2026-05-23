@@ -1,0 +1,59 @@
+using FluentValidation;
+using MediatR;
+using Misty.Domain.Communication;
+
+namespace Misty.Application.Communication;
+
+public record CreateChannelCommand(
+    Guid UserId,
+    string Name,
+    bool IsPrivate,
+    bool IsAiAssistantEnabled,
+    ChannelPermission DefaultPermissions)
+    : IRequest<CreateChannelResponse>;
+
+public record CreateChannelResponse(
+    Guid ChannelId,
+    string Name,
+    bool IsPrivate,
+    string? InviteCode,
+    bool IsAiAssistantEnabled,
+    long DefaultPermissions,
+    string Version);
+
+public sealed class CreateChannelCommandHandler : IRequestHandler<CreateChannelCommand, CreateChannelResponse>
+{
+    private readonly IChannelRepository _channels;
+
+    public CreateChannelCommandHandler(IChannelRepository channels) => _channels = channels;
+
+    public async Task<CreateChannelResponse> Handle(CreateChannelCommand request, CancellationToken ct)
+    {
+        var channel = Channel.Create(
+            Guid.NewGuid(),
+            request.Name,
+            request.IsPrivate,
+            request.IsAiAssistantEnabled,
+            request.DefaultPermissions,
+            request.UserId);
+
+        await _channels.AddAsync(channel, ct);
+
+        return new CreateChannelResponse(
+            channel.Id,
+            channel.Name,
+            channel.IsPrivate,
+            channel.InviteCode,
+            channel.IsAiAssistantEnabled,
+            (long)channel.DefaultPermissions,
+            Convert.ToBase64String(channel.Version));
+    }
+}
+
+public sealed class CreateChannelValidator : AbstractValidator<CreateChannelCommand>
+{
+    public CreateChannelValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(100);
+    }
+}

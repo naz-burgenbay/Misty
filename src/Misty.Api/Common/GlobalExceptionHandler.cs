@@ -48,6 +48,11 @@ internal sealed class GlobalExceptionHandler : IExceptionHandler
                 title = ex.Message;
                 break;
 
+            case NotFoundException:
+                status = StatusCodes.Status404NotFound;
+                title = ex.Message;
+                break;
+
             default:
                 return false; // Will change in the future
         }

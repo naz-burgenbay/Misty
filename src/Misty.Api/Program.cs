@@ -7,8 +7,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Misty.Api.Common;
 using Misty.Application.Common.Behaviors;
+using Misty.Application.Communication;
+using Misty.Application.Communication.Contracts;
 using Misty.Application.Users;
 using Misty.Domain.Users;
+using Misty.Infrastructure.Communication;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
 using OpenTelemetry.Resources;
@@ -130,6 +133,13 @@ var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorag
     ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
+
+builder.Services.AddScoped<IPermissionService, StubPermissionService>();
+builder.Services.AddScoped<IUserQueryService, StubUserQueryService>();
+builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
+builder.Services.AddScoped<IUserBlockService, StubUserBlockService>();
+
+builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
 
 var app = builder.Build();
 
