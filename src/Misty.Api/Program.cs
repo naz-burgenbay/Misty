@@ -134,7 +134,7 @@ var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorag
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
 
-builder.Services.AddScoped<IPermissionService, StubPermissionService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IUserQueryService, StubUserQueryService>();
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<IUserBlockService, StubUserBlockService>();
