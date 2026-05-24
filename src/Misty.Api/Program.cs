@@ -151,7 +151,7 @@ builder.Services.AddScoped<PermissionService>();
 builder.Services.AddScoped<IPermissionService, CachedPermissionService>();
 builder.Services.AddScoped<IUserQueryService, StubUserQueryService>();
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
-builder.Services.AddScoped<IUserBlockService, StubUserBlockService>();
+builder.Services.AddScoped<IUserBlockService, UserBlockService>();
 
 builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
 builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();

@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<MemberRole> MemberRoles => Set<MemberRole>();
     public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
+    public DbSet<UserBlock> UserBlocks => Set<UserBlock>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
