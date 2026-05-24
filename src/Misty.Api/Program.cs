@@ -10,9 +10,11 @@ using Misty.Api.Common;
 using Misty.Application.Common.Behaviors;
 using Misty.Application.Communication;
 using Misty.Application.Communication.Contracts;
+using Misty.Application.Messaging;
 using Misty.Application.Users;
 using Misty.Domain.Users;
 using Misty.Infrastructure.Communication;
+using Misty.Infrastructure.Messaging;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
 using OpenTelemetry.Resources;
@@ -158,6 +160,7 @@ builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
 builder.Services.AddScoped<IChannelRoleRepository, ChannelRoleRepository>();
 builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
+builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 
 var app = builder.Build();
 
