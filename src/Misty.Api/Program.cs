@@ -1,3 +1,4 @@
+using Azure.Messaging.ServiceBus;
 using Azure.Storage.Blobs;
 using FluentValidation;
 using MediatR;
@@ -7,13 +8,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Misty.Api.Common;
 using Misty.Application.Common.Behaviors;
+using Misty.Application.Communication;
+using Misty.Application.Communication.Contracts;
 using Misty.Application.Users;
 using Misty.Domain.Users;
+using Misty.Infrastructure.Communication;
 using Misty.Infrastructure.Persistence;
 using Misty.Infrastructure.Users;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using StackExchange.Redis;
 using System.Text;
 
 try
@@ -24,7 +29,7 @@ try
 }
 catch (InvalidOperationException)
 {
-    // Logger already frozen (e.g. multiple WebApplicationFactory instances in tests). Safe to ignore.
+    // Logger already frozen
 }
 
 try
@@ -105,8 +110,19 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
     ?? throw new InvalidOperationException("Connection string 'Redis' is not configured.");
 
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var opts = ConfigurationOptions.Parse(redisConnectionString);
+    opts.AllowAdmin = true; // Required for channel-wide cache invalidation scan (IServer.KeysAsync)
+    return ConnectionMultiplexer.Connect(opts);
+});
+
 var serviceBusConnectionString = builder.Configuration.GetConnectionString("ServiceBus")
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
+
+builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionString));
+builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
+builder.Services.AddHostedService<CacheInvalidationWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
@@ -130,6 +146,18 @@ var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorag
     ?? throw new InvalidOperationException("Connection string 'BlobStorage' is not configured.");
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
+
+builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<IPermissionService, CachedPermissionService>();
+builder.Services.AddScoped<IUserQueryService, StubUserQueryService>();
+builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
+builder.Services.AddScoped<IUserBlockService, UserBlockService>();
+
+builder.Services.AddScoped<IChannelRepository, ChannelRepository>();
+builder.Services.AddScoped<IMembershipRepository, MembershipRepository>();
+builder.Services.AddScoped<IChannelRoleRepository, ChannelRoleRepository>();
+builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
+builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 
 var app = builder.Build();
 

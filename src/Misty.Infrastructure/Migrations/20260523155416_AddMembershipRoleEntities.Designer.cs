@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Misty.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Misty.Infrastructure.Persistence;
 namespace Misty.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260523155416_AddMembershipRoleEntities")]
+    partial class AddMembershipRoleEntities
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -104,30 +107,6 @@ namespace Misty.Infrastructure.Migrations
                     b.ToTable("ChannelRole", "comm");
                 });
 
-            modelBuilder.Entity("Misty.Domain.Communication.Conversation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("UserAId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("UserBId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserAId", "UserBId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Conversation_UserA_UserB");
-
-                    b.ToTable("Conversation", "comm");
-                });
-
             modelBuilder.Entity("Misty.Domain.Communication.MemberRole", b =>
                 {
                     b.Property<Guid>("MembershipId")
@@ -165,59 +144,6 @@ namespace Misty.Infrastructure.Migrations
                         .HasDatabaseName("UX_Membership_Channel_User");
 
                     b.ToTable("Membership", "comm");
-                });
-
-            modelBuilder.Entity("Misty.Domain.Communication.ModerationAction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ChannelId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid>("IssuedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("TargetUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChannelId", "TargetUserId", "Type")
-                        .HasDatabaseName("IX_ModerationAction_Channel_User_Type");
-
-                    b.ToTable("ModerationAction", "comm");
-                });
-
-            modelBuilder.Entity("Misty.Domain.Communication.UserBlock", b =>
-                {
-                    b.Property<Guid>("BlockerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("BlockedId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("BlockerId", "BlockedId");
-
-                    b.ToTable("UserBlock", "comm");
                 });
 
             modelBuilder.Entity("Misty.Domain.Users.RefreshToken", b =>
@@ -328,15 +254,6 @@ namespace Misty.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Misty.Domain.Communication.Membership", b =>
-                {
-                    b.HasOne("Misty.Domain.Communication.Channel", null)
-                        .WithMany()
-                        .HasForeignKey("ChannelId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("Misty.Domain.Communication.ModerationAction", b =>
                 {
                     b.HasOne("Misty.Domain.Communication.Channel", null)
                         .WithMany()

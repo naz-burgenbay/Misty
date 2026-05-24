@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Misty.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Misty.Infrastructure.Persistence;
 namespace Misty.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260524145239_AddConversation")]
+    partial class AddConversation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -202,22 +205,6 @@ namespace Misty.Infrastructure.Migrations
                         .HasDatabaseName("IX_ModerationAction_Channel_User_Type");
 
                     b.ToTable("ModerationAction", "comm");
-                });
-
-            modelBuilder.Entity("Misty.Domain.Communication.UserBlock", b =>
-                {
-                    b.Property<Guid>("BlockerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("BlockedId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("BlockerId", "BlockedId");
-
-                    b.ToTable("UserBlock", "comm");
                 });
 
             modelBuilder.Entity("Misty.Domain.Users.RefreshToken", b =>

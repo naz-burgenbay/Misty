@@ -1,0 +1,39 @@
+using Microsoft.EntityFrameworkCore;
+using Misty.Application.Communication.Contracts;
+using Misty.Domain.Communication;
+using Misty.Infrastructure.Persistence;
+
+namespace Misty.Infrastructure.Communication;
+
+public sealed class UserBlockService : IUserBlockService
+{
+    private readonly ApplicationDbContext _db;
+
+    public UserBlockService(ApplicationDbContext db) => _db = db;
+
+    public async Task BlockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
+    {
+        var exists = await _db.UserBlocks.AnyAsync(
+            b => b.BlockerId == blockerId && b.BlockedId == blockedId, ct);
+        if (exists) return;
+
+        await _db.UserBlocks.AddAsync(UserBlock.Create(blockerId, blockedId), ct);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task UnblockAsync(Guid blockerId, Guid blockedId, CancellationToken ct = default)
+    {
+        var block = await _db.UserBlocks.FirstOrDefaultAsync(
+            b => b.BlockerId == blockerId && b.BlockedId == blockedId, ct);
+        if (block is null) return;
+
+        _db.UserBlocks.Remove(block);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public Task<bool> IsBlockedAsync(Guid userId1, Guid userId2, CancellationToken ct = default)
+        => _db.UserBlocks.AnyAsync(
+            b => (b.BlockerId == userId1 && b.BlockedId == userId2)
+              || (b.BlockerId == userId2 && b.BlockedId == userId1),
+            ct);
+}
