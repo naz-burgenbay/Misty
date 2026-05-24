@@ -5,9 +5,17 @@ using Misty.Infrastructure.Persistence;
 
 namespace Misty.Infrastructure.Communication;
 
-// Permissions are currently checked directly from the database. Redis caching will be added later
+// Resolves permissions directly from SQL. Used by CachedPermissionService when a cache entry is missing.
 public sealed class PermissionService : IPermissionService
 {
+    internal const long DeniedSentinel = long.MinValue; // banned or non-member
+
+    private static readonly ChannelPermission WriteMask =
+        ChannelPermission.SendMessages
+        | ChannelPermission.AttachFiles
+        | ChannelPermission.AddReactions
+        | ChannelPermission.MentionEveryone;
+
     private readonly ApplicationDbContext _db;
 
     public PermissionService(ApplicationDbContext db) => _db = db;
@@ -18,9 +26,20 @@ public sealed class PermissionService : IPermissionService
         ChannelPermission permission,
         CancellationToken ct = default)
     {
+        var effective = await ComputeEffectivePermissionsAsync(userId, channelId, ct);
+        if (effective == DeniedSentinel) return false;
+        return ((ChannelPermission)effective & permission) == permission;
+    }
+
+// Computes effective channel permissions from SQL. Muted users lose write permissions; banned users and non-members receive DeniedSentinel.
+    internal async Task<long> ComputeEffectivePermissionsAsync(
+        Guid userId,
+        Guid channelId,
+        CancellationToken ct = default)
+    {
         var utcNow = DateTime.UtcNow;
 
-        // A banned user is denied all permissions.
+        // If banned, deny everything
         var isBanned = await _db.ModerationActions.AnyAsync(
             m => m.ChannelId == channelId
               && m.TargetUserId == userId
@@ -30,38 +49,18 @@ public sealed class PermissionService : IPermissionService
             ct);
 
         if (isBanned)
-            return false;
+            return DeniedSentinel;
 
-        // A muted user is denied write-class permissions.
-        var writeMask = ChannelPermission.SendMessages
-                      | ChannelPermission.AttachFiles
-                      | ChannelPermission.AddReactions
-                      | ChannelPermission.MentionEveryone;
-
-        if ((permission & writeMask) != 0)
-        {
-            var isMuted = await _db.ModerationActions.AnyAsync(
-                m => m.ChannelId == channelId
-                  && m.TargetUserId == userId
-                  && m.Type == ModerationActionType.Mute
-                  && m.RevokedAt == null
-                  && (m.ExpiresAt == null || m.ExpiresAt > utcNow),
-                ct);
-
-            if (isMuted)
-                return false;
-        }
-
-        // Resolve permissions from the user's membership and assigned roles.
+        // If not a member, deny everything
         var membership = await _db.Memberships
             .AsNoTracking()
             .FirstOrDefaultAsync(m => m.ChannelId == channelId && m.UserId == userId, ct);
 
         if (membership is null)
-            return false;
+            return DeniedSentinel;
 
-        // Aggregate flags from all roles assigned to this membership.
-        var effective = await _db.MemberRoles
+        // Aggregate flags from all assigned roles
+        var rolePerms = await _db.MemberRoles
             .AsNoTracking()
             .Where(mr => mr.MembershipId == membership.Id)
             .Join(_db.ChannelRoles.AsNoTracking(),
@@ -70,8 +69,20 @@ public sealed class PermissionService : IPermissionService
                 (mr, cr) => cr.Permissions)
             .ToListAsync(ct);
 
-        var aggregated = effective.Aggregate(ChannelPermission.None, (acc, p) => acc | p);
+        var aggregated = rolePerms.Aggregate(ChannelPermission.None, (acc, p) => acc | p);
 
-        return (aggregated & permission) == permission;
+        // If muted, strip write-class bits
+        var isMuted = await _db.ModerationActions.AnyAsync(
+            m => m.ChannelId == channelId
+              && m.TargetUserId == userId
+              && m.Type == ModerationActionType.Mute
+              && m.RevokedAt == null
+              && (m.ExpiresAt == null || m.ExpiresAt > utcNow),
+            ct);
+
+        if (isMuted)
+            aggregated &= ~WriteMask;
+
+        return (long)aggregated;
     }
 }

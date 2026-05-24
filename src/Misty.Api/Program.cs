@@ -17,6 +17,7 @@ using Misty.Infrastructure.Users;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using StackExchange.Redis;
 using System.Text;
 
 try
@@ -27,7 +28,7 @@ try
 }
 catch (InvalidOperationException)
 {
-    // Logger already frozen (e.g. multiple WebApplicationFactory instances in tests). Safe to ignore.
+    // Logger already frozen
 }
 
 try
@@ -108,6 +109,9 @@ builder.Services.AddDbContextFactory<ApplicationDbContext>(
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
     ?? throw new InvalidOperationException("Connection string 'Redis' is not configured.");
 
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    _ => ConnectionMultiplexer.Connect(redisConnectionString));
+
 var serviceBusConnectionString = builder.Configuration.GetConnectionString("ServiceBus")
     ?? throw new InvalidOperationException("Connection string 'ServiceBus' is not configured.");
 
@@ -134,7 +138,8 @@ var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorag
 builder.Services.AddSingleton(new BlobServiceClient(blobConnectionString));
 builder.Services.AddScoped<IAvatarService, AzureBlobAvatarService>();
 
-builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<PermissionService>();
+builder.Services.AddScoped<IPermissionService, CachedPermissionService>();
 builder.Services.AddScoped<IUserQueryService, StubUserQueryService>();
 builder.Services.AddScoped<IChannelQueryService, ChannelQueryService>();
 builder.Services.AddScoped<IUserBlockService, StubUserBlockService>();

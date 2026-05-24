@@ -7,8 +7,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Misty.Application.Communication.Contracts;
 using Misty.Domain.Communication;
+using Misty.Infrastructure.Communication;
 using Misty.Tests.Integration;
 using Respawn;
+using StackExchange.Redis;
 
 namespace Misty.Tests.Communication;
 
@@ -114,8 +116,10 @@ public sealed class PermissionTests : IAsyncLifetime
 
     private async Task<bool> CheckAsync(Guid userId, Guid channelId, ChannelPermission permission)
     {
+    // Resolves the SQL-backed permission service directly to avoid cache state affecting these tests.
+    // CachedPermissionService behaviour is covered separately.
         using var scope = _factory.Services.CreateScope();
-        var svc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
+        var svc = scope.ServiceProvider.GetRequiredService<PermissionService>();
         return await svc.CheckPermissionAsync(userId, channelId, permission);
     }
 
@@ -267,5 +271,39 @@ public sealed class PermissionTests : IAsyncLifetime
         // ManageChannel was granted by neither role
         var canManage = await CheckAsync(memberId, channelId, ChannelPermission.ManageChannel);
         canManage.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CacheIsPopulatedAfterFirstMiss()
+    {
+        var (ownerToken, _) = await RegisterAndLoginAsync("perm_owner8");
+        var (memberToken, memberId) = await RegisterAndLoginAsync("perm_member8");
+        var channelId = await CreateChannelAsync(ownerToken, "perm-ch8");
+        await JoinChannelAsync(memberToken, channelId);
+
+        var roleId = await CreateRoleAsync(ownerToken, channelId, ChannelPermission.ViewChannel);
+        await AssignRoleAsync(ownerToken, channelId, memberId, roleId);
+
+        // Evict any pre-existing cache entry so we start from a clean miss.
+        var mux = _factory.Services.GetRequiredService<IConnectionMultiplexer>();
+        var redis = mux.GetDatabase();
+        var key = CachedPermissionService.CacheKey(memberId, channelId);
+        await redis.KeyDeleteAsync(key);
+
+        // First check via the decorated service. Must hit SQL (cache miss), populate the cache and return true.
+        using var scope = _factory.Services.CreateScope();
+        var cachedSvc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
+        var result = await cachedSvc.CheckPermissionAsync(memberId, channelId, ChannelPermission.ViewChannel);
+        result.Should().BeTrue();
+
+        // Assert the cache key now exists with a value that encodes ViewChannel.
+        var cached = await redis.StringGetAsync(key);
+        cached.HasValue.Should().BeTrue("the cache must be populated after the first miss");
+
+        var cachedLong = (long)cached;
+        cachedLong.Should().NotBe(long.MinValue, "a member with a role must not be stored as the denied sentinel");
+        ((ChannelPermission)cachedLong & ChannelPermission.ViewChannel)
+            .Should().Be(ChannelPermission.ViewChannel,
+                "the cached value must include the ViewChannel flag");
     }
 }
