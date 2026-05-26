@@ -148,6 +148,7 @@ builder.Services.AddSingleton(_ => new ServiceBusClient(serviceBusConnectionStri
 builder.Services.AddSingleton<IEventPublisher, ServiceBusEventPublisher>();
 builder.Services.AddHostedService<CacheInvalidationWorker>();
 builder.Services.AddHostedService<OutboxRelayWorker>();
+builder.Services.AddHostedService<RealtimeDeliveryWorker>();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")

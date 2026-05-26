@@ -38,7 +38,8 @@ public sealed class MessageRepository : IMessageRepository
 }
 
 // Payload written to msg.OutboxMessage and later published to the message-events Service Bus topic.
-internal sealed record MessageCreatedPayload(
+// Public so that consumers in Misty.Api (e.g. RealtimeDeliveryWorker) can deserialize it directly.
+public sealed record MessageCreatedPayload(
     Guid MessageId,
     Guid? ChannelId,
     Guid? ConversationId,
