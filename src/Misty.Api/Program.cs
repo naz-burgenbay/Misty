@@ -187,6 +187,8 @@ builder.Services.AddScoped<IModerationRepository, ModerationRepository>();
 builder.Services.AddScoped<IConversationRepository, ConversationRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
+builder.Services.AddScoped<IAttachmentRepository, AttachmentRepository>();
+builder.Services.AddScoped<IAttachmentStorage, AzureBlobAttachmentStorage>();
 
 var app = builder.Build();
 
