@@ -59,6 +59,14 @@ public sealed class AIResponseWorker : BackgroundService
 
     private async Task OnMessageAsync(ProcessMessageEventArgs args)
     {
+        // The ai-response subscription receives every event published to message-events.
+        // Only MessageCreated events are relevant here; skip everything else (e.g. ReactionChanged).
+        if (args.Message.Subject != "MessageCreated")
+        {
+            await args.CompleteMessageAsync(args.Message, args.CancellationToken);
+            return;
+        }
+
         MessageCreatedPayload? payload;
         try
         {

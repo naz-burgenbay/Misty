@@ -88,6 +88,7 @@ public sealed class OutboxRelayWorker : BackgroundService
             new ServiceBusMessage(BinaryData.FromString(outbox.Payload))
             {
                 MessageId = outbox.Id.ToString(),
+                Subject = outbox.EventType,
             },
             ct);
 

@@ -17,6 +17,10 @@ public sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outbox
             .IsRequired()
             .HasMaxLength(256);
 
+        builder.Property(m => m.EventType)
+            .IsRequired()
+            .HasMaxLength(128);
+
         // Payload is an unbounded JSON string; no max length constraint.
         builder.Property(m => m.Payload)
             .IsRequired();

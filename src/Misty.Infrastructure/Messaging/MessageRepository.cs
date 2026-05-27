@@ -19,6 +19,20 @@ public sealed class MessageRepository : IMessageRepository
     public Task<Message?> GetByIdAsync(Guid messageId, CancellationToken ct = default)
         => _db.Messages.FirstOrDefaultAsync(m => m.Id == messageId, ct);
 
+    public async Task<IReadOnlyDictionary<Guid, Message>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids,
+        CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+            return new Dictionary<Guid, Message>();
+
+        var list = await _db.Messages
+            .Where(m => ids.Contains(m.Id))
+            .ToListAsync(ct);
+
+        return list.ToDictionary(m => m.Id);
+    }
+
     public async Task<(List<Message> Messages, string? NextCursor)> GetByChannelAsync(
         Guid channelId,
         int pageSize,
@@ -72,7 +86,7 @@ public sealed class MessageRepository : IMessageRepository
             message.ParentMessageId,
             message.CreatedAt));
 
-        var outbox = OutboxMessage.Create(message.Id, "message-events", payload);
+        var outbox = OutboxMessage.Create(message.Id, "message-events", "MessageCreated", payload);
 
         // Both rows are written in one SaveChangesAsync call for a single SQL transaction.
         await _db.Messages.AddAsync(message, ct);
@@ -102,5 +116,9 @@ public sealed record MessageCreatedPayload(
     Guid AuthorId,
     string Content,
     Guid? ParentMessageId,
-    DateTime CreatedAt);
+    DateTime CreatedAt)
+{
+    // Discriminator included in the JSON envelope for forward-compatible polymorphic deserialization.
+    public string EventType { get; init; } = "MessageCreated";
+}
 

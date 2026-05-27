@@ -50,6 +50,17 @@ public sealed class SendChannelMessageCommandHandler
         if (!canSend)
             throw new ForbiddenException("You do not have permission to send messages in this channel.");
 
+        if (request.ParentMessageId is { } parentId)
+        {
+            var parent = await _messages.GetByIdAsync(parentId, ct);
+            if (parent is null)
+                throw new ValidationException("Parent message not found.");
+            if (parent.ChannelId != request.ChannelId)
+                throw new ValidationException("Parent message does not belong to this channel.");
+            if (parent.ParentMessageId is not null)
+                throw new ValidationException("Replies to replies are not allowed. Reply to the top-level message instead.");
+        }
+
         var existing = await _messages.FindByIdempotencyKeyAsync(request.AuthorId, request.IdempotencyKey, ct);
         if (existing is not null)
             return ToResponse(existing, wasIdempotent: true);

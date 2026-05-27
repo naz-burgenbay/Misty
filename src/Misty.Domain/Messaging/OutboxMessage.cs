@@ -9,6 +9,9 @@ public sealed class OutboxMessage
 
     public string Topic { get; private set; } = null!;
 
+    // Discriminator carried on the Service Bus message Subject so consumers can dispatch by event kind without inspecting the payload first.
+    public string EventType { get; private set; } = null!;
+
     public string Payload { get; private set; } = null!;
 
     // Null until the outbox relay successfully publishes the message.
@@ -18,12 +21,13 @@ public sealed class OutboxMessage
 
     public DateTime CreatedAt { get; private set; }
 
-    public static OutboxMessage Create(Guid messageId, string topic, string payload)
+    public static OutboxMessage Create(Guid messageId, string topic, string eventType, string payload)
         => new()
         {
             Id = Guid.NewGuid(),
             MessageId = messageId,
             Topic = topic,
+            EventType = eventType,
             Payload = payload,
             CreatedAt = DateTime.UtcNow,
         };
