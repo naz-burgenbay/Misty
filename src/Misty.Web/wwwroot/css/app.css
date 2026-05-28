@@ -4,33 +4,33 @@
 
 :root {
     /* Surfaces */
-    --color-surface:          #FBF7F0;
-    --color-surface-raised:   #F3ECDF;
-    --color-surface-active:   #E8DDC8;
-    --color-border:           #D4C5A8;
+    --color-surface:          #FFFFFF;
+    --color-surface-raised:   #F5F5F5;
+    --color-surface-active:   #EBEBEB;
+    --color-border:           #E1E1E1;
 
     /* Text */
-    --color-text-primary:     #3D332A;
-    --color-text-secondary:   #7C6F5E;
-    --color-text-muted:       #B3A693;
+    --color-text-primary:     #242424;
+    --color-text-secondary:   #616161;
+    --color-text-muted:       #8A8A8A;
 
     /* Accent */
-    --color-accent:           #8E78B5;
-    --color-accent-tint:      #EFE7F3;
-    --color-accent-bubble:    #DCD0E8;
+    --color-accent:           #0099BC;
+    --color-accent-tint:      #D9F2F7;
+    --color-accent-bubble:    #A8E0EA;
 
     /* AI assistant */
-    --color-ai:               #6B8A6E;
-    --color-ai-tint:          #DDE9DE;
+    --color-ai:               #9373E6;
+    --color-ai-tint:          #F0E8FA;
 
     /* Status */
-    --color-status-online:    #7A9341;
-    --color-status-warn:      #C28438;
-    --color-status-danger:    #B0492F;
+    --color-status-online:    #6BB700;
+    --color-status-warn:      #F7B900;
+    --color-status-danger:    #C4314B;
 
     /* Typography */
-    --font-ui:                'DM Sans', system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
-    --font-display:           'DM Serif Display', Georgia, serif;
+    --font-ui:                'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    --font-display:           'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
 
     /* Type scale */
     --fs-display:             32px;
@@ -61,15 +61,51 @@
     --sp-8:                   32px;
 
     /* Radius */
-    --radius-sm:              6px;
-    --radius-md:              8px;
-    --radius-card:            10px;
-    --radius-bubble-sent:     14px 14px 4px 14px;
-    --radius-bubble-received: 14px 14px 14px 4px;
+    --radius-sm:              4px;
+    --radius-md:              4px;
+    --radius-card:            8px;
+    --radius-bubble-sent:     8px 8px 2px 8px;
+    --radius-bubble-received: 8px 8px 8px 2px;
 
     /* Motion */
-    --transition-fast:        120ms ease;
-    --transition-std:         200ms ease;
+    --transition-fast:        100ms cubic-bezier(0.33, 0.0, 0.67, 1);
+    --transition-std:         200ms cubic-bezier(0.33, 0.0, 0.67, 1);
+
+    /* Focus ring */
+    --ring-focus:             0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-accent);
+
+    /* Elevation */
+    --shadow-overlay:         0 8px 16px rgba(0, 0, 0, 0.14), 0 0 2px rgba(0, 0, 0, 0.12);
+
+    /* Accent (extended) */
+    --color-accent-text:           #005B70;  /* accent button text, Owner/Admin badge text */
+
+    /* Bubble text colors */
+    --color-bubble-sent-text:      #003D4D;
+    --color-bubble-ai-text:        #4B2D7A;
+
+    /* Status tints (badges, button fills) */
+    --color-status-online-bg:      #DFF6DD;
+    --color-status-online-text:    #107C10;
+    --color-status-warn-bg:        #FFF4CE;
+    --color-status-warn-text:      #8A6300;
+    --color-status-danger-bg:      #FDE7E9;
+    --color-status-danger-text:    #A4262C;
+    --color-ai-text:               #6435C9;
+
+    /* Borders */
+    --color-border-strong:         #C7C7C7;  /* reactions active, segmented selected */
+
+    /* Overlay */
+    --color-overlay:               rgba(0, 0, 0, 0.4);
+
+    /* Avatar palette (deterministic by user-id hash) */
+    --color-avatar-1:              #0099BC;  /* cyan-blue (brand) */
+    --color-avatar-2:              #038387;  /* teal */
+    --color-avatar-3:              #CA5010;  /* burnt orange */
+    --color-avatar-4:              #498205;  /* green */
+    --color-avatar-5:              #5B5FC7;  /* purple */
+    --color-avatar-6:              #C239B3;  /* magenta */
 }
 
 /* Global resets                                                       */
