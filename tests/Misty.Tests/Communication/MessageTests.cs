@@ -205,7 +205,7 @@ public sealed class MessageTests : IAsyncLifetime
         _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
         var banResp = await _client.PostAsJsonAsync(
             $"/api/v1/channels/{channelId}/members/{memberId}/moderation",
-            new { Type = 1 /* Ban */, ExpiresAt = (DateTime?)null });
+            new { Type = 1 /* Ban */, Reason = "test reason", ExpiresAt = (DateTime?)null });
         banResp.StatusCode.Should().Be(HttpStatusCode.Created);
 
         // Redis is cleared directly here so the test stays deterministic and does not depend on asynchronous Service Bus processing timing in the emulator. 

@@ -131,7 +131,7 @@ public sealed class PermissionTests : IAsyncLifetime
     {
         await using var db = _factory.CreateDbContext();
         db.ModerationActions.Add(ModerationAction.Create(
-            Guid.NewGuid(), channelId, targetUserId, issuedByUserId, type, expiresAt));
+            Guid.NewGuid(), channelId, targetUserId, issuedByUserId, type, "test reason", expiresAt));
         await db.SaveChangesAsync();
     }
 
