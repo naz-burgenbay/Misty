@@ -1,0 +1,30 @@
+using MediatR;
+
+namespace Misty.Application.Communication;
+
+public record GetMyChannelsQuery(Guid UserId) : IRequest<IReadOnlyList<ChannelSummaryDto>>;
+
+public record ChannelSummaryDto(
+    Guid Id,
+    string Name,
+    bool IsPrivate,
+    bool IsAiAssistantEnabled,
+    int MemberCount,
+    DateTime? LastMessageAt);
+
+public sealed class GetMyChannelsQueryHandler
+    : IRequestHandler<GetMyChannelsQuery, IReadOnlyList<ChannelSummaryDto>>
+{
+    private readonly IChannelRepository _channels;
+
+    public GetMyChannelsQueryHandler(IChannelRepository channels) => _channels = channels;
+
+    public async Task<IReadOnlyList<ChannelSummaryDto>> Handle(GetMyChannelsQuery request, CancellationToken ct)
+    {
+        var channels = await _channels.ListForUserAsync(request.UserId, ct);
+        return channels
+            .Select(c => new ChannelSummaryDto(
+                c.Id, c.Name, c.IsPrivate, c.IsAiAssistantEnabled, c.MemberCount, c.LastMessageAt))
+            .ToList();
+    }
+}

@@ -1,9 +1,63 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
 @code {
     [Parameter, EditorRequired] public IReadOnlyList<MockMessage> Messages { get; set; } = Array.Empty<MockMessage>();
+    [Parameter] public bool HasMoreOlder { get; set; }
+    [Parameter] public bool LoadingOlder { get; set; }
+    [Parameter] public EventCallback OnLoadOlder { get; set; }
+
+    private ElementReference _scrollEl;
+    private DotNetObjectReference<MessageStream>? _selfRef;
+    private bool _wired;
+    private int _lastCount;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("mistyScroll.attach", _scrollEl, _selfRef);
+            _wired = true;
+        }
+
+        if (_wired && Messages.Count != _lastCount)
+        {
+            // Initial render or new message at bottom: pin to the latest.
+            await JS.InvokeVoidAsync("mistyScroll.scrollToBottomIfNear", _scrollEl);
+            _lastCount = Messages.Count;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnNearTopAsync()
+        => HasMoreOlder && !LoadingOlder && OnLoadOlder.HasDelegate
+            ? OnLoadOlder.InvokeAsync()
+            : Task.CompletedTask;
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_wired)
+        {
+            try { await JS.InvokeVoidAsync("mistyScroll.detach", _scrollEl); } catch { /* ignore */ }
+        }
+        _selfRef?.Dispose();
+    }
 }
 
 <div class="stream">
-    <div class="scroll">
+    <div class="scroll" @ref="_scrollEl">
+        @if (HasMoreOlder)
+        {
+            <div class="load-older">
+                <Button Variant="Button.ButtonVariant.Ghost"
+                        Disabled="LoadingOlder"
+                        OnClick="@(() => OnLoadOlder.InvokeAsync())">
+                    @(LoadingOlder ? "Loading…" : "Load older messages")
+                </Button>
+            </div>
+        }
+
         <div class="day-divider"><span>Today</span></div>
 
         @foreach (var msg in Messages)

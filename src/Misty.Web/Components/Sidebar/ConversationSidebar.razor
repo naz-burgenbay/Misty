@@ -1,4 +1,6 @@
 @inject NavigationManager Nav
+@inject IChannelService Channels
+@inject IToastService Toasts
 @implements IDisposable
 
 <aside class="sidebar">
@@ -16,13 +18,17 @@
         <section class="group">
             <div class="group-head">
                 <span class="label">Channels</span>
-                <IconButton Title="New channel"><Blazicon Svg="Lucide.Plus" /></IconButton>
+                <IconButton Title="New channel" OnClick="@(() => _createOpen = true)"><Blazicon Svg="Lucide.Plus" /></IconButton>
             </div>
             @foreach (var channel in FilteredChannels)
             {
                 <ChannelListItem Channel="channel"
                                  Selected="@IsChannelActive(channel.Id)"
                                  Href="@($"/c/{channel.Id}")" />
+            }
+            @if (_channels.Count == 0)
+            {
+                <div class="empty-hint">No channels yet. Create one.</div>
             }
         </section>
 
@@ -41,13 +47,59 @@
     </div>
 </aside>
 
+@if (_createOpen)
+{
+    <Modal Open="true" Title="Create a channel" OnClose="@CloseCreate">
+        <ChildContent>
+            <div class="create-form">
+                <div class="field">
+                    <span class="lbl">Name</span>
+                    <TextField Value="@_newName" ValueChanged="@(v => _newName = v ?? string.Empty)"
+                               Placeholder="e.g. backend" />
+                </div>
+                <div class="field">
+                    <span class="lbl">Privacy</span>
+                    <SegmentedControl Options="@(new [] { "Public", "Private" })"
+                                      Value="@(_newPrivate ? "Private" : "Public")"
+                                      ValueChanged="@(v => _newPrivate = v == "Private")" />
+                </div>
+                <div class="field">
+                    <span class="lbl">AI assistant</span>
+                    <SegmentedControl Options="@(new [] { "Off", "On" })"
+                                      Value="@(_newAi ? "On" : "Off")"
+                                      ValueChanged="@(v => _newAi = v == "On")" />
+                </div>
+                @if (!string.IsNullOrEmpty(_createError))
+                {
+                    <div class="form-error">@_createError</div>
+                }
+            </div>
+        </ChildContent>
+        <Footer>
+            <Button Variant="Button.ButtonVariant.Ghost" OnClick="CloseCreate">Cancel</Button>
+            <Button Variant="Button.ButtonVariant.Primary"
+                    Disabled="@(_creating || string.IsNullOrWhiteSpace(_newName))"
+                    OnClick="CreateAsync">@(_creating ? "Creating…" : "Create")</Button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     private string _search = string.Empty;
+    private IReadOnlyList<ChannelSummaryDto> _channels = Array.Empty<ChannelSummaryDto>();
+    private IDisposable? _channelsSub;
 
-    private IEnumerable<MockChannel> FilteredChannels =>
+    private bool _createOpen;
+    private bool _creating;
+    private string _newName = string.Empty;
+    private bool _newPrivate;
+    private bool _newAi;
+    private string? _createError;
+
+    private IEnumerable<ChannelSummaryDto> FilteredChannels =>
         string.IsNullOrWhiteSpace(_search)
-            ? MockDataStore.Channels
-            : MockDataStore.Channels.Where(c => c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
+            ? _channels
+            : _channels.Where(c => c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
     private IEnumerable<MockDirectConversation> FilteredDirects =>
         string.IsNullOrWhiteSpace(_search)
@@ -59,7 +111,53 @@
     private bool IsChannelActive(Guid id) => CurrentPath.Equals($"/c/{id}", StringComparison.OrdinalIgnoreCase);
     private bool IsDmActive(Guid id) => CurrentPath.Equals($"/dm/{id}", StringComparison.OrdinalIgnoreCase);
 
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocation;
-    public void Dispose() => Nav.LocationChanged -= OnLocation;
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocation;
+        _channelsSub = Channels.MyChannels.Subscribe(list =>
+        {
+            _channels = list;
+            InvokeAsync(StateHasChanged);
+        });
+        _ = Channels.RefreshAsync();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocation;
+        _channelsSub?.Dispose();
+    }
+
     private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
+
+    private void CloseCreate()
+    {
+        _createOpen = false;
+        _createError = null;
+        _newName = string.Empty;
+        _newPrivate = false;
+        _newAi = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName)) return;
+        _creating = true;
+        _createError = null;
+        try
+        {
+            var created = await Channels.CreateAsync(_newName.Trim(), _newPrivate, _newAi);
+            CloseCreate();
+            Toasts.Show($"Created #{created.Name}.", ToastKind.Success);
+            Nav.NavigateTo($"/c/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            _createError = ex.Message;
+        }
+        finally
+        {
+            _creating = false;
+        }
+    }
 }

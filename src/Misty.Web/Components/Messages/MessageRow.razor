@@ -1,24 +1,42 @@
+@inject IUserDirectory Users
+@inject IAuthService Auth
+@implements IDisposable
+
 @code {
     [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
 
-    private MockUser Author => MockDataStore.GetUser(Message.AuthorId);
-    private bool IsMine => Message.AuthorId == MockDataStore.MeId;
-    private bool IsAi => Author.IsAi;
+    private UserSummary _author = default!;
+    private Guid _watchedAuthor;
 
-    private MockMessage? Parent => Message.ParentMessageId is { } pid
-        ? MockDataStore.MessagesByConversation
-            .SelectMany(kv => kv.Value)
-            .FirstOrDefault(m => m.Id == pid)
-        : null;
+    private bool IsMine => Message.AuthorId == Auth.CurrentUser?.Id;
+    private bool IsAi => _author.IsAi;
+
+    protected override void OnInitialized() => Users.Updated += OnUserUpdated;
+
+    protected override void OnParametersSet()
+    {
+        _watchedAuthor = Message.AuthorId;
+        _author = Users.Get(_watchedAuthor);
+        _ = Users.EnsureAsync(_watchedAuthor);
+    }
+
+    private void OnUserUpdated(Guid id)
+    {
+        if (id != _watchedAuthor) return;
+        _author = Users.Get(_watchedAuthor);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose() => Users.Updated -= OnUserUpdated;
 }
 
 <div class="row @(IsMine ? "mine" : "")">
     <div class="avatar-col">
-        <Avatar Name="@Author.DisplayName" IsAi="@IsAi" Size="Avatar.AvatarSize.Medium" />
+        <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Size="Avatar.AvatarSize.Medium" />
     </div>
     <div class="body">
         <div class="header">
-            <span class="name @(IsAi ? "ai" : "")">@Author.DisplayName</span>
+            <span class="name @(IsAi ? "ai" : "")">@_author.DisplayName</span>
             @if (IsAi)
             {
                 <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
@@ -30,11 +48,6 @@
             }
         </div>
 
-        @if (Parent is not null)
-        {
-            <ReplyPreview Parent="Parent" />
-        }
-
         <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
 
         @if (Message.Reactions is { Count: > 0 })
@@ -45,5 +58,5 @@
 </div>
 
 @code {
-    private static string FormatTime(DateTime at) => at.ToString("HH:mm");
+    private static string FormatTime(DateTime at) => at.ToLocalTime().ToString("HH:mm");
 }

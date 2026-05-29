@@ -2,10 +2,12 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Misty.Web;
 using Misty.Web.Services.Auth;
+using Misty.Web.Services.Communication;
 using Misty.Web.Services.Realtime;
 using Misty.Web.Services.Messaging;
 using Misty.Web.Services.Presence;
 using Misty.Web.Services.Permissions;
+using Misty.Web.Services.Users;
 using Misty.Web.Services.Ux;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -38,7 +40,9 @@ builder.Services.AddScoped<ISignalRClient>(sp => new HubSignalRClient(
     sp.GetRequiredService<IAuthService>(),
     new Uri(new Uri(apiBaseUrl), "hubs/realtime").ToString(),
     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HubSignalRClient>>()));
-builder.Services.AddScoped<IMessageStore, StubMessageStore>();
+builder.Services.AddScoped<IUserDirectory, HttpUserDirectory>();
+builder.Services.AddScoped<IChannelService, HttpChannelService>();
+builder.Services.AddScoped<IMessageStore, HttpMessageStore>();
 builder.Services.AddScoped<IPresenceService, StubPresenceService>();
 builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
 builder.Services.AddScoped<IToastService, StubToastService>();
@@ -52,12 +56,30 @@ await auth.InitializeAsync();
 
 // Drive the SignalR connection from auth state. The hub uses an access-token provider that pulls (and refreshes) from IAuthService on every (re)connect, so the connection survives token expiry across long offline windows.
 var hub = host.Services.GetRequiredService<ISignalRClient>();
+var channels = host.Services.GetRequiredService<IChannelService>();
+var userDir = host.Services.GetRequiredService<IUserDirectory>();
+
+void SeedMe()
+{
+    if (auth.CurrentUser is { } me)
+        userDir.Seed(new UserSummary(me.Id, me.DisplayName, me.Username));
+}
+
 if (auth.IsAuthenticated)
+{
+    SeedMe();
     _ = hub.StartAsync();
+    _ = channels.RefreshAsync();
+}
 
 auth.AuthStateChanged += () =>
 {
-    if (auth.IsAuthenticated) _ = hub.StartAsync();
+    if (auth.IsAuthenticated)
+    {
+        SeedMe();
+        _ = hub.StartAsync();
+        _ = channels.RefreshAsync();
+    }
     else _ = hub.StopAsync();
 };
 

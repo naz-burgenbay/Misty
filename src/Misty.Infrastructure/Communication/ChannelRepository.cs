@@ -15,6 +15,17 @@ public sealed class ChannelRepository : IChannelRepository
     public Task<Channel?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => _db.Channels.FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted, ct);
 
+    public async Task<IReadOnlyList<Channel>> ListForUserAsync(Guid userId, CancellationToken ct = default)
+    {
+        var query =
+            from m in _db.Memberships.AsNoTracking()
+            join c in _db.Channels.AsNoTracking() on m.ChannelId equals c.Id
+            where m.UserId == userId && !c.IsDeleted
+            orderby c.Name
+            select c;
+        return await query.ToListAsync(ct);
+    }
+
     public async Task CreateWithOwnerAsync(
         Channel channel,
         ChannelRole ownerRole,

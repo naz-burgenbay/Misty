@@ -1,6 +1,7 @@
 @page "/c/{ChannelId:guid}"
 @implements IDisposable
 @inject NavigationManager Nav
+@inject IChannelService Channels
 @inject IMessageStore MessageStore
 @inject IPermissionsCache Permissions
 @inject IToastService Toasts
@@ -9,66 +10,94 @@
 @code {
     [Parameter] public Guid ChannelId { get; set; }
 
-    private MockChannel? _channel;
+    private ChannelSummaryDto? _channel;
     private IReadOnlyList<MockMessage> _messages = Array.Empty<MockMessage>();
     private MockMessage? _replyingTo;
     private ChannelPermissionFlags _myPermissions;
     private IDisposable? _messagesSub;
+    private IDisposable? _channelsSub;
     private IDisposable? _permissionsSub;
+    private bool _loadError;
+    private bool _loadingOlder;
 
     private bool _membersOpen;
     private bool _settingsOpen;
-    private bool _moderationOpen;
 
-    private MockMembership? _moderationTarget;
-    private string _moderationAction = "Mute";
-    private string _moderationHours = "24";
-    private string _moderationReason = string.Empty;
-
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        _channel = MockDataStore.GetChannel(ChannelId);
         _replyingTo = null;
+        _loadError = false;
 
         _messagesSub?.Dispose();
+        _channelsSub?.Dispose();
         _permissionsSub?.Dispose();
 
-        if (_channel is null) return;
+        _channelsSub = Channels.MyChannels.Subscribe(list =>
+        {
+            _channel = list.FirstOrDefault(c => c.Id == ChannelId);
+            InvokeAsync(StateHasChanged);
+        });
 
         _messagesSub = MessageStore.GetConversation(ChannelId).Subscribe(list =>
         {
             _messages = list;
             InvokeAsync(StateHasChanged);
         });
+
         _permissionsSub = Permissions.Watch(ChannelId).Subscribe(flags =>
         {
             _myPermissions = flags;
             InvokeAsync(StateHasChanged);
         });
+
+        try
+        {
+            await MessageStore.EnsureLoadedAsync(ChannelId);
+        }
+        catch
+        {
+            _loadError = true;
+        }
     }
 
-    private string Subtitle => _channel is null ? string.Empty :
-        $"{_channel.MemberCount} members";
+    private string Subtitle => _channel is null ? string.Empty : $"{_channel.MemberCount} members";
 
-    private bool CanSend       => _myPermissions.HasFlag(ChannelPermissionFlags.SendMessages);
+    // Until server-side permission events land in this client, we conservatively allow send on any channel we know we're a member of.
+    private bool CanSend       => _channel is not null;
     private bool CanModerate   => _myPermissions.HasFlag(ChannelPermissionFlags.ModerateMembers);
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
-
-    private void OpenModeration(MockMembership m)
-    {
-        _moderationTarget = m;
-        _moderationAction = "Mute";
-        _moderationHours = "24";
-        _moderationReason = string.Empty;
-        _moderationOpen = true;
-    }
 
     private async Task SendAsync(string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return;
         var parentId = _replyingTo?.Id;
         _replyingTo = null;
-        await MessageStore.SendAsync(ChannelId, content, parentId);
+        try
+        {
+            await MessageStore.SendAsync(ChannelId, content, parentId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Send failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task LoadOlderAsync()
+    {
+        if (_loadingOlder) return;
+        _loadingOlder = true;
+        try
+        {
+            await MessageStore.LoadOlderAsync(ChannelId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't load older messages: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _loadingOlder = false;
+        }
     }
 
     private async Task ConfirmDeleteChannelAsync()
@@ -78,19 +107,22 @@
             Message: $"This permanently deletes #{_channel?.Name}. This cannot be undone.",
             ConfirmLabel: "Delete",
             IsDestructive: true));
-        if (ok) Toasts.Show("Channel deletion is wired to the backend in Phase 5.", ToastKind.Info);
+        if (ok) Toasts.Show("Channel deletion is wired to the backend in a later step.", ToastKind.Info);
     }
 
     public void Dispose()
     {
         _messagesSub?.Dispose();
+        _channelsSub?.Dispose();
         _permissionsSub?.Dispose();
     }
 }
 
 @if (_channel is null)
 {
-    <div class="missing">Channel not found.</div>
+    <div class="missing">
+        @(_loadError ? "Couldn't load this channel." : "Loading…")
+    </div>
 }
 else
 {
@@ -106,7 +138,10 @@ else
                 </TitleIcon>
             </ConversationHeader>
 
-            <MessageStream Messages="_messages" />
+            <MessageStream Messages="_messages"
+                           HasMoreOlder="@MessageStore.HasMoreOlder(ChannelId)"
+                           LoadingOlder="_loadingOlder"
+                           OnLoadOlder="LoadOlderAsync" />
 
             <MessageComposer Placeholder="@($"Message #{_channel.Name}")"
                              ReplyingTo="_replyingTo"
@@ -125,21 +160,7 @@ else
                     </IconButton>
                 </div>
                 <div class="pane-body">
-                    <MembersPanel Channel="_channel" />
-                    @if (CanModerate)
-                    {
-                        <div class="mod-actions">
-                            <h4>Moderation demo</h4>
-                            <p>Click a member to mute, warn, or ban them.</p>
-                            @foreach (var m in _channel.Members)
-                            {
-                                var user = MockDataStore.GetUser(m.UserId);
-                                <Button Variant="Button.ButtonVariant.Ghost" OnClick="@(() => OpenModeration(m))">
-                                    Moderate @user.DisplayName
-                                </Button>
-                            }
-                        </div>
-                    }
+                    <div class="member-count">@_channel.MemberCount members</div>
                 </div>
             </aside>
         }
@@ -169,60 +190,4 @@ else
             </div>
         </div>
     </Drawer>
-
-    @if (_moderationOpen && _moderationTarget is not null)
-    {
-        var targetUser = MockDataStore.GetUser(_moderationTarget.UserId);
-        <Modal Open="true" Title="@($"Moderate {targetUser.DisplayName}")" OnClose="@(() => _moderationOpen = false)">
-            <ChildContent>
-                <div class="mod-form">
-                    @if (_moderationTarget.Moderation != ModerationKind.None)
-                    {
-                        <div class="existing">
-                            <Badge Variant="@(_moderationTarget.Moderation switch {
-                                ModerationKind.Muted  => Badge.BadgeVariant.Muted,
-                                ModerationKind.Warned => Badge.BadgeVariant.Warned,
-                                ModerationKind.Banned => Badge.BadgeVariant.Banned,
-                                _ => Badge.BadgeVariant.Muted })"
-                                   Label="@_moderationTarget.Moderation.ToString()" />
-                            <span>Existing moderation is active.</span>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="field">
-                            <span class="lbl">Action</span>
-                            <SegmentedControl Options="@(new [] { "Mute", "Warn", "Ban" })"
-                                              Value="@_moderationAction"
-                                              ValueChanged="@(v => _moderationAction = v)" />
-                        </div>
-                        <div class="field">
-                            <span class="lbl">Duration (hours)</span>
-                            <TextField Value="@_moderationHours" ValueChanged="@(v => _moderationHours = v ?? string.Empty)" />
-                        </div>
-                        <div class="field">
-                            <span class="lbl">Reason</span>
-                            <TextField Value="@_moderationReason" ValueChanged="@(v => _moderationReason = v ?? string.Empty)"
-                                       Placeholder="Optional note shown in the audit log" />
-                        </div>
-                    }
-                </div>
-            </ChildContent>
-            <Footer>
-                <Button Variant="Button.ButtonVariant.Ghost" OnClick="@(() => _moderationOpen = false)">Cancel</Button>
-                @if (_moderationTarget.Moderation != ModerationKind.None)
-                {
-                    <Button Variant="Button.ButtonVariant.Primary" OnClick="@(() => _moderationOpen = false)">
-                        Revoke moderation
-                    </Button>
-                }
-                else
-                {
-                    <Button Variant="Button.ButtonVariant.Primary" OnClick="@(() => _moderationOpen = false)">
-                        @($"{_moderationAction} {targetUser.DisplayName}")
-                    </Button>
-                }
-            </Footer>
-        </Modal>
-    }
 }
