@@ -33,14 +33,26 @@ public sealed class MessageRepository : IMessageRepository
         return list.ToDictionary(m => m.Id);
     }
 
-    public async Task<(List<Message> Messages, string? NextCursor)> GetByChannelAsync(
+    public Task<(List<Message> Messages, string? NextCursor)> GetByChannelAsync(
         Guid channelId,
         int pageSize,
         string? cursor,
         CancellationToken ct = default)
-    {
-        IQueryable<Message> query = _db.Messages.Where(m => m.ChannelId == channelId);
+        => PageAsync(_db.Messages.Where(m => m.ChannelId == channelId), pageSize, cursor, ct);
 
+    public Task<(List<Message> Messages, string? NextCursor)> GetByConversationAsync(
+        Guid conversationId,
+        int pageSize,
+        string? cursor,
+        CancellationToken ct = default)
+        => PageAsync(_db.Messages.Where(m => m.ConversationId == conversationId), pageSize, cursor, ct);
+
+    private static async Task<(List<Message> Messages, string? NextCursor)> PageAsync(
+        IQueryable<Message> query,
+        int pageSize,
+        string? cursor,
+        CancellationToken ct)
+    {
         if (!string.IsNullOrEmpty(cursor))
         {
             var parts = cursor.Split('|');

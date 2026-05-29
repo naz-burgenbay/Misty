@@ -12,6 +12,11 @@ public interface IMessageRepository
         int pageSize,
         string? cursor,
         CancellationToken ct = default);
+    Task<(List<Message> Messages, string? NextCursor)> GetByConversationAsync(
+        Guid conversationId,
+        int pageSize,
+        string? cursor,
+        CancellationToken ct = default);
     Task<bool> HasRepliesAsync(Guid messageId, CancellationToken ct = default);
     Task AddAsync(Message message, CancellationToken ct = default);
     Task UpdateAsync(Message message, CancellationToken ct = default);

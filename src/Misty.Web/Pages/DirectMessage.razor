@@ -1,71 +1,144 @@
 @page "/dm/{ConversationId:guid}"
 @implements IDisposable
+@inject IDirectMessageService Conversations
+@inject IUserDirectory Users
 @inject IMessageStore MessageStore
+@inject IToastService Toasts
 
 @code {
     [Parameter] public Guid ConversationId { get; set; }
 
-    private MockDirectConversation? _dm;
-    private MockUser? _other;
+    private DirectConversationDto? _dm;
+    private UserSummary? _other;
     private IReadOnlyList<MockMessage> _messages = Array.Empty<MockMessage>();
+    private MockMessage? _replyingTo;
     private IDisposable? _messagesSub;
+    private IDisposable? _conversationsSub;
+    private bool _loadError;
+    private bool _loadingOlder;
+    private bool _userSubscribed;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        _dm = MockDataStore.GetDirect(ConversationId);
-        _other = _dm is null ? null : MockDataStore.GetUser(_dm.OtherUserId);
+        _replyingTo = null;
+        _loadError = false;
 
         _messagesSub?.Dispose();
+        _conversationsSub?.Dispose();
+
+        if (!_userSubscribed)
+        {
+            Users.Updated += OnUserUpdated;
+            _userSubscribed = true;
+        }
+
+        _conversationsSub = Conversations.MyConversations.Subscribe(list =>
+        {
+            _dm = list.FirstOrDefault(c => c.Id == ConversationId);
+            if (_dm is not null)
+            {
+                _other = Users.Get(_dm.OtherUserId);
+                _ = Users.EnsureAsync(_dm.OtherUserId);
+            }
+            InvokeAsync(StateHasChanged);
+        });
+
         _messagesSub = MessageStore.GetConversation(ConversationId).Subscribe(list =>
         {
             _messages = list;
             InvokeAsync(StateHasChanged);
         });
+
+        // If the conversation list hasn't been loaded yet (e.g. deep-link), pull it now so the header has a name.
+        if (Conversations.MyConversations.Value.Count == 0)
+            await Conversations.RefreshAsync();
+
+        try
+        {
+            await MessageStore.EnsureConversationLoadedAsync(ConversationId);
+        }
+        catch
+        {
+            _loadError = true;
+        }
     }
 
-    private Task SendAsync(string content) =>
-        string.IsNullOrWhiteSpace(content)
-            ? Task.CompletedTask
-            : MessageStore.SendAsync(ConversationId, content);
+    private string OtherName => _other?.DisplayName ?? "…";
 
-    public void Dispose() => _messagesSub?.Dispose();
+    private async Task SendAsync(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return;
+        var parentId = _replyingTo?.Id;
+        _replyingTo = null;
+        try
+        {
+            await MessageStore.SendAsync(ConversationId, content, parentId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Send failed: {ex.Message}", ToastKind.Error);
+        }
+    }
+
+    private async Task LoadOlderAsync()
+    {
+        if (_loadingOlder) return;
+        _loadingOlder = true;
+        try
+        {
+            await MessageStore.LoadOlderAsync(ConversationId);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Couldn't load older messages: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _loadingOlder = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _messagesSub?.Dispose();
+        _conversationsSub?.Dispose();
+        if (_userSubscribed) Users.Updated -= OnUserUpdated;
+    }
+
+    private void OnUserUpdated(Guid userId)
+    {
+        if (_dm is null || userId != _dm.OtherUserId) return;
+        _other = Users.Get(userId);
+        InvokeAsync(StateHasChanged);
+    }
 }
 
-@if (_dm is null || _other is null)
+@if (_loadError)
 {
-    <div class="missing">Conversation not found.</div>
+    <div class="missing">Couldn't load this conversation.</div>
 }
 else
 {
     <div class="page">
         <div class="main">
-            <ConversationHeader Title="@_other.DisplayName"
+            <ConversationHeader Title="@OtherName"
                                 ShowChannelActions="false">
                 <TitleIcon>
-                    <Avatar Name="@_other.DisplayName"
+                    <Avatar Name="@OtherName"
                             Size="Avatar.AvatarSize.Small" />
                 </TitleIcon>
             </ConversationHeader>
 
-            @if (_dm.IsBlocked)
-            {
-                <div class="blocked-stream">
-                    <div class="blocked-card">
-                        <Blazicon Svg="Lucide.UserX" />
-                        <h3>You blocked @_other.DisplayName</h3>
-                        <p>You won't see their messages and they can't message you.</p>
-                        <Button Variant="Button.ButtonVariant.Ghost">Unblock</Button>
-                    </div>
-                </div>
-                <MessageComposer Disabled="true"
-                                 Placeholder="Unblock to send a message" />
-            }
-            else
-            {
-                <MessageStream Messages="_messages" />
-                <MessageComposer Placeholder="@($"Message {_other.DisplayName}")"
-                                 OnSend="SendAsync" />
-            }
+            <MessageStream Messages="_messages"
+                           HasMoreOlder="@MessageStore.HasMoreOlder(ConversationId)"
+                           LoadingOlder="_loadingOlder"
+                           OnLoadOlder="LoadOlderAsync"
+                           OnReply="@(EventCallback.Factory.Create<MockMessage>(this, m => _replyingTo = m))" />
+
+            <MessageComposer Placeholder="@($"Message {OtherName}")"
+                             ReplyingTo="_replyingTo"
+                             OnClearReply="@(() => _replyingTo = null)"
+                             OnSend="SendAsync" />
         </div>
     </div>
 }

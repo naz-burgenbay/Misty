@@ -42,6 +42,7 @@ builder.Services.AddScoped<ISignalRClient>(sp => new HubSignalRClient(
     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HubSignalRClient>>()));
 builder.Services.AddScoped<IUserDirectory, HttpUserDirectory>();
 builder.Services.AddScoped<IChannelService, HttpChannelService>();
+builder.Services.AddScoped<IDirectMessageService, HttpDirectMessageService>();
 builder.Services.AddScoped<IMessageStore, HttpMessageStore>();
 builder.Services.AddScoped<IPresenceService, StubPresenceService>();
 builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
@@ -57,6 +58,7 @@ await auth.InitializeAsync();
 // Drive the SignalR connection from auth state. The hub uses an access-token provider that pulls (and refreshes) from IAuthService on every (re)connect, so the connection survives token expiry across long offline windows.
 var hub = host.Services.GetRequiredService<ISignalRClient>();
 var channels = host.Services.GetRequiredService<IChannelService>();
+var directMessages = host.Services.GetRequiredService<IDirectMessageService>();
 var userDir = host.Services.GetRequiredService<IUserDirectory>();
 
 void SeedMe()
@@ -70,6 +72,7 @@ if (auth.IsAuthenticated)
     SeedMe();
     _ = hub.StartAsync();
     _ = channels.RefreshAsync();
+    _ = directMessages.RefreshAsync();
 }
 
 auth.AuthStateChanged += () =>
@@ -79,6 +82,7 @@ auth.AuthStateChanged += () =>
         SeedMe();
         _ = hub.StartAsync();
         _ = channels.RefreshAsync();
+        _ = directMessages.RefreshAsync();
     }
     else _ = hub.StopAsync();
 };

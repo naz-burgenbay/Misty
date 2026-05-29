@@ -1,5 +1,6 @@
 @inject NavigationManager Nav
 @inject IChannelService Channels
+@inject IDirectMessageService DirectMessages
 @inject IToastService Toasts
 @implements IDisposable
 
@@ -35,13 +36,17 @@
         <section class="group">
             <div class="group-head">
                 <span class="label">Direct messages</span>
-                <IconButton Title="New DM"><Blazicon Svg="Lucide.Plus" /></IconButton>
+                <IconButton Title="New DM" OnClick="@(() => _newDmOpen = true)"><Blazicon Svg="Lucide.Plus" /></IconButton>
             </div>
             @foreach (var dm in FilteredDirects)
             {
                 <DirectMessageListItem Conversation="dm"
                                        Selected="@IsDmActive(dm.Id)"
                                        Href="@($"/dm/{dm.Id}")" />
+            }
+            @if (_directs.Count == 0)
+            {
+                <div class="empty-hint">No direct messages yet.</div>
             }
         </section>
     </div>
@@ -84,10 +89,38 @@
     </Modal>
 }
 
+@if (_newDmOpen)
+{
+    <Modal Open="true" Title="Start a direct message" OnClose="@CloseNewDm">
+        <ChildContent>
+            <div class="create-form">
+                <div class="field">
+                    <span class="lbl">User id</span>
+                    <TextField Value="@_newDmUserId" ValueChanged="@(v => _newDmUserId = v ?? string.Empty)"
+                               Placeholder="00000000-0000-0000-0000-000000000000" />
+                </div>
+                <div class="hint">User search is coming in a later step. For now, paste the recipient's user id.</div>
+                @if (!string.IsNullOrEmpty(_newDmError))
+                {
+                    <div class="form-error">@_newDmError</div>
+                }
+            </div>
+        </ChildContent>
+        <Footer>
+            <Button Variant="Button.ButtonVariant.Ghost" OnClick="CloseNewDm">Cancel</Button>
+            <Button Variant="Button.ButtonVariant.Primary"
+                    Disabled="@(_creatingDm || string.IsNullOrWhiteSpace(_newDmUserId))"
+                    OnClick="CreateDmAsync">@(_creatingDm ? "Opening…" : "Open")</Button>
+        </Footer>
+    </Modal>
+}
+
 @code {
     private string _search = string.Empty;
     private IReadOnlyList<ChannelSummaryDto> _channels = Array.Empty<ChannelSummaryDto>();
+    private IReadOnlyList<DirectConversationDto> _directs = Array.Empty<DirectConversationDto>();
     private IDisposable? _channelsSub;
+    private IDisposable? _directsSub;
 
     private bool _createOpen;
     private bool _creating;
@@ -96,16 +129,17 @@
     private bool _newAi;
     private string? _createError;
 
+    private bool _newDmOpen;
+    private bool _creatingDm;
+    private string _newDmUserId = string.Empty;
+    private string? _newDmError;
+
     private IEnumerable<ChannelSummaryDto> FilteredChannels =>
         string.IsNullOrWhiteSpace(_search)
             ? _channels
             : _channels.Where(c => c.Name.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
-    private IEnumerable<MockDirectConversation> FilteredDirects =>
-        string.IsNullOrWhiteSpace(_search)
-            ? MockDataStore.DirectMessages
-            : MockDataStore.DirectMessages.Where(d =>
-                MockDataStore.GetUser(d.OtherUserId).DisplayName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<DirectConversationDto> FilteredDirects => _directs;
 
     private string CurrentPath => "/" + Nav.ToBaseRelativePath(Nav.Uri).TrimEnd('/');
     private bool IsChannelActive(Guid id) => CurrentPath.Equals($"/c/{id}", StringComparison.OrdinalIgnoreCase);
@@ -119,13 +153,20 @@
             _channels = list;
             InvokeAsync(StateHasChanged);
         });
+        _directsSub = DirectMessages.MyConversations.Subscribe(list =>
+        {
+            _directs = list;
+            InvokeAsync(StateHasChanged);
+        });
         _ = Channels.RefreshAsync();
+        _ = DirectMessages.RefreshAsync();
     }
 
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocation;
         _channelsSub?.Dispose();
+        _directsSub?.Dispose();
     }
 
     private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
@@ -158,6 +199,38 @@
         finally
         {
             _creating = false;
+        }
+    }
+
+    private void CloseNewDm()
+    {
+        _newDmOpen = false;
+        _newDmError = null;
+        _newDmUserId = string.Empty;
+    }
+
+    private async Task CreateDmAsync()
+    {
+        _newDmError = null;
+        if (!Guid.TryParse(_newDmUserId?.Trim(), out var otherId))
+        {
+            _newDmError = "Enter a valid user id (GUID).";
+            return;
+        }
+        _creatingDm = true;
+        try
+        {
+            var created = await DirectMessages.CreateOrGetAsync(otherId);
+            CloseNewDm();
+            Nav.NavigateTo($"/dm/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            _newDmError = ex.Message;
+        }
+        finally
+        {
+            _creatingDm = false;
         }
     }
 }

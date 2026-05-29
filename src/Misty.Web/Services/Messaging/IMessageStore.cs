@@ -11,13 +11,14 @@ namespace Misty.Web.Services.Messaging;
 
 // Per-conversation observable message list. Optimistic insert produces a local message with a client-generated idempotency key; when the SignalR MessageCreated event arrives (or the 201 response with the persisted Id), the optimistic entry is replaced atomically using the key (SignalR-vs-201 dedup as described in the design system).
 //
-// Channel ids must be marked via EnsureLoadedAsync before they go through the API path; ids that are never registered (e.g. DM conversations until Step 5.5) keep the legacy mock behaviour so DirectMessage.razor continues to render with fake data.
+// Ids must be registered as either a channel (via EnsureChannelLoadedAsync) or a direct conversation (via EnsureConversationLoadedAsync) before the store can talk to the API on their behalf. Unregistered ids fall through to the legacy mock data so dev-only screens (e.g. the gallery) keep rendering.
 public interface IMessageStore
 {
     Observable<IReadOnlyList<MockMessage>> GetConversation(Guid conversationId);
     Task EnsureLoadedAsync(Guid channelId, CancellationToken ct = default);
-    Task LoadOlderAsync(Guid channelId, CancellationToken ct = default);
-    bool HasMoreOlder(Guid channelId);
+    Task EnsureConversationLoadedAsync(Guid conversationId, CancellationToken ct = default);
+    Task LoadOlderAsync(Guid conversationId, CancellationToken ct = default);
+    bool HasMoreOlder(Guid conversationId);
     Task SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default);
 }
@@ -37,6 +38,7 @@ public sealed class StubMessageStore : IMessageStore
     }
 
     public Task EnsureLoadedAsync(Guid channelId, CancellationToken ct = default) => Task.CompletedTask;
+    public Task EnsureConversationLoadedAsync(Guid conversationId, CancellationToken ct = default) => Task.CompletedTask;
     public Task LoadOlderAsync(Guid channelId, CancellationToken ct = default) => Task.CompletedTask;
     public bool HasMoreOlder(Guid channelId) => false;
 
@@ -62,9 +64,9 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
     private readonly ILogger<HttpMessageStore> _logger;
 
     private readonly Dictionary<Guid, Observable<IReadOnlyList<MockMessage>>> _byConversation = new();
-    private readonly Dictionary<Guid, ChannelState> _channels = new();
-    // Pending optimistic sends keyed by idempotency key, scoped per channel, so the 201 echo can swap the placeholder Id without duplicating the row.
-    private readonly Dictionary<Guid, Dictionary<string, Guid>> _pendingByChannel = new();
+    private readonly Dictionary<Guid, TopicState> _topics = new();
+    // Pending optimistic sends keyed by idempotency key, scoped per topic (channel or DM), so the 201 echo can swap the placeholder Id without duplicating the row.
+    private readonly Dictionary<Guid, Dictionary<string, Guid>> _pendingByTopic = new();
 
     private readonly List<IDisposable> _hubSubs = new();
     private bool _hubSubscribed;
@@ -84,8 +86,8 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
     {
         if (!_byConversation.TryGetValue(conversationId, out var obs))
         {
-            // For unregistered ids (DMs in this phase) fall back to mock data so the existing DM screen keeps working until Step 5.5.
-            var seed = _channels.ContainsKey(conversationId)
+            // For unregistered ids fall back to mock data so dev-only screens (gallery, etc.) keep rendering.
+            var seed = _topics.ContainsKey(conversationId)
                 ? (IReadOnlyList<MockMessage>)Array.Empty<MockMessage>()
                 : MockDataStore.GetMessages(conversationId);
             obs = new Observable<IReadOnlyList<MockMessage>>(seed);
@@ -94,20 +96,26 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         return obs;
     }
 
-    public async Task EnsureLoadedAsync(Guid channelId, CancellationToken ct = default)
+    public Task EnsureLoadedAsync(Guid channelId, CancellationToken ct = default)
+        => EnsureLoadedAsync(channelId, TopicKind.Channel, ct);
+
+    public Task EnsureConversationLoadedAsync(Guid conversationId, CancellationToken ct = default)
+        => EnsureLoadedAsync(conversationId, TopicKind.Conversation, ct);
+
+    private async Task EnsureLoadedAsync(Guid topicId, TopicKind kind, CancellationToken ct)
     {
         EnsureHubSubscribed();
 
-        if (_channels.TryGetValue(channelId, out var state) && state.InitialLoaded)
+        if (_topics.TryGetValue(topicId, out var state) && state.InitialLoaded)
             return;
 
-        state ??= new ChannelState();
-        _channels[channelId] = state;
+        state ??= new TopicState(kind);
+        _topics[topicId] = state;
 
-        var obs = GetConversation(channelId);
+        var obs = GetConversation(topicId);
         try
         {
-            var page = await FetchPageAsync(channelId, cursor: null, ct);
+            var page = await FetchPageAsync(topicId, kind, cursor: null, ct);
             state.NextCursor = page.NextCursor;
             state.InitialLoaded = true;
 
@@ -117,24 +125,24 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load messages for channel {ChannelId}.", channelId);
+            _logger.LogError(ex, "Failed to load messages for {Kind} {TopicId}.", kind, topicId);
             throw;
         }
     }
 
-    public async Task LoadOlderAsync(Guid channelId, CancellationToken ct = default)
+    public async Task LoadOlderAsync(Guid topicId, CancellationToken ct = default)
     {
-        if (!_channels.TryGetValue(channelId, out var state) || !state.InitialLoaded) return;
+        if (!_topics.TryGetValue(topicId, out var state) || !state.InitialLoaded) return;
         if (state.NextCursor is null || state.LoadingOlder) return;
 
         state.LoadingOlder = true;
         try
         {
-            var page = await FetchPageAsync(channelId, state.NextCursor, ct);
+            var page = await FetchPageAsync(topicId, state.Kind, state.NextCursor, ct);
             state.NextCursor = page.NextCursor;
 
             if (page.Messages.Count == 0) return;
-            var obs = GetConversation(channelId);
+            var obs = GetConversation(topicId);
             var older = page.Messages.Select(ToMockMessage).ToList();
             // The cursor API returns pages in DESC order (newest first within the page); we keep the visible list in ASC order, so older messages prepend.
             var merged = new List<MockMessage>(older.Count + obs.Value.Count);
@@ -149,14 +157,14 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         }
     }
 
-    public bool HasMoreOlder(Guid channelId)
-        => _channels.TryGetValue(channelId, out var s) && s.InitialLoaded && s.NextCursor is not null;
+    public bool HasMoreOlder(Guid topicId)
+        => _topics.TryGetValue(topicId, out var s) && s.InitialLoaded && s.NextCursor is not null;
 
     public async Task SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default)
     {
-        // Unregistered conversations (DMs) keep the mock optimistic behaviour for now.
-        if (!_channels.ContainsKey(conversationId))
+        // Unregistered ids keep the mock optimistic behaviour (dev-only gallery screens etc.).
+        if (!_topics.TryGetValue(conversationId, out var topic))
         {
             var obs2 = GetConversation(conversationId);
             var optimistic2 = new MockMessage(Guid.NewGuid(), MockDataStore.MeId, content,
@@ -185,7 +193,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         try
         {
             using var resp = await _http.PostAsJsonAsync(
-                $"api/v1/channels/{conversationId}/messages",
+                MessagesUrl(conversationId, topic.Kind),
                 new SendMessageRequestDto(content, idempotencyKey, parentMessageId),
                 ct);
             resp.EnsureSuccessStatusCode();
@@ -195,7 +203,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Send to channel {ChannelId} failed; rolling back optimistic message.", conversationId);
+            _logger.LogError(ex, "Send to {Kind} {TopicId} failed; rolling back optimistic message.", topic.Kind, conversationId);
             RemoveOptimistic(conversationId, optimisticId);
             ClearPending(conversationId, idempotencyKey);
             throw;
@@ -214,10 +222,11 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     private void OnMessageCreated(MessageCreatedEvent evt)
     {
-        if (evt.ChannelId is not { } channelId) return;
-        if (!_channels.ContainsKey(channelId)) return;
+        var topicId = evt.ChannelId ?? evt.ConversationId;
+        if (topicId is not { } id) return;
+        if (!_topics.ContainsKey(id)) return;
 
-        var obs = GetConversation(channelId);
+        var obs = GetConversation(id);
         var existing = obs.Value;
 
         // Echo of a message we just sent: the optimistic row was already swapped to the real Id by the 201 path; skip.
@@ -248,8 +257,9 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     private void OnMessageEdited(MessageEditedEvent evt)
     {
-        if (evt.ChannelId is not { } channelId) return;
-        if (!_byConversation.TryGetValue(channelId, out var obs)) return;
+        var topicId = evt.ChannelId ?? evt.ConversationId;
+        if (topicId is not { } id) return;
+        if (!_byConversation.TryGetValue(id, out var obs)) return;
         var next = obs.Value.Select(m => m.Id == evt.MessageId
             ? m with { Content = evt.Content, IsEdited = true }
             : m).ToList();
@@ -258,8 +268,9 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     private void OnMessageDeleted(MessageDeletedEvent evt)
     {
-        if (evt.ChannelId is not { } channelId) return;
-        if (!_byConversation.TryGetValue(channelId, out var obs)) return;
+        var topicId = evt.ChannelId ?? evt.ConversationId;
+        if (topicId is not { } id) return;
+        if (!_byConversation.TryGetValue(id, out var obs)) return;
         var next = evt.IsTombstone
             ? obs.Value.Select(m => m.Id == evt.MessageId
                 ? m with { Content = string.Empty, IsTombstone = true }
@@ -270,55 +281,64 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
 
     private void OnHubReconnected()
     {
-        // On reconnect, refetch every loaded channel from the cursor head. Simpler than reasoning about gap recovery for the small page sizes this client uses.
-        foreach (var channelId in _channels.Keys.ToList())
+        // On reconnect, refetch every loaded topic from the cursor head. Simpler than reasoning about gap recovery for the small page sizes this client uses.
+        foreach (var (topicId, state) in _topics.ToList())
         {
-            _channels[channelId] = new ChannelState();
-            _ = EnsureLoadedAsync(channelId);
+            var kind = state.Kind;
+            _topics[topicId] = new TopicState(kind);
+            _ = EnsureLoadedAsync(topicId, kind, CancellationToken.None);
         }
     }
 
-    private async Task<MessagesPageDto> FetchPageAsync(Guid channelId, string? cursor, CancellationToken ct)
+    private static string MessagesUrl(Guid id, TopicKind kind) => kind switch
     {
+        TopicKind.Channel => $"api/v1/channels/{id}/messages",
+        TopicKind.Conversation => $"api/v1/conversations/{id}/messages",
+        _ => throw new InvalidOperationException($"Unknown topic kind: {kind}"),
+    };
+
+    private async Task<MessagesPageDto> FetchPageAsync(Guid topicId, TopicKind kind, string? cursor, CancellationToken ct)
+    {
+        var baseUrl = MessagesUrl(topicId, kind);
         var url = cursor is null
-            ? $"api/v1/channels/{channelId}/messages?pageSize={PageSize}"
-            : $"api/v1/channels/{channelId}/messages?pageSize={PageSize}&cursor={WebUtility.UrlEncode(cursor)}";
+            ? $"{baseUrl}?pageSize={PageSize}"
+            : $"{baseUrl}?pageSize={PageSize}&cursor={WebUtility.UrlEncode(cursor)}";
         return await _http.GetFromJsonAsync<MessagesPageDto>(url, ct)
                ?? new MessagesPageDto(new List<MessageWireDto>(), null);
     }
 
-    private void TrackPending(Guid channelId, string key, Guid optimisticId)
+    private void TrackPending(Guid topicId, string key, Guid optimisticId)
     {
-        if (!_pendingByChannel.TryGetValue(channelId, out var map))
+        if (!_pendingByTopic.TryGetValue(topicId, out var map))
         {
             map = new Dictionary<string, Guid>();
-            _pendingByChannel[channelId] = map;
+            _pendingByTopic[topicId] = map;
         }
         map[key] = optimisticId;
     }
 
-    private void ClearPending(Guid channelId, string key)
+    private void ClearPending(Guid topicId, string key)
     {
-        if (_pendingByChannel.TryGetValue(channelId, out var map))
+        if (_pendingByTopic.TryGetValue(topicId, out var map))
             map.Remove(key);
     }
 
-    private void ReplaceOptimistic(Guid channelId, string key, Guid realId, string content, DateTime createdAt, Guid? parentMessageId)
+    private void ReplaceOptimistic(Guid topicId, string key, Guid realId, string content, DateTime createdAt, Guid? parentMessageId)
     {
-        if (!_pendingByChannel.TryGetValue(channelId, out var map) || !map.TryGetValue(key, out var optimisticId))
+        if (!_pendingByTopic.TryGetValue(topicId, out var map) || !map.TryGetValue(key, out var optimisticId))
             return;
         map.Remove(key);
 
-        var obs = GetConversation(channelId);
+        var obs = GetConversation(topicId);
         var next = obs.Value.Select(m => m.Id == optimisticId
             ? m with { Id = realId, Content = content, CreatedAt = createdAt, ParentMessageId = parentMessageId }
             : m).ToList();
         obs.Set(next);
     }
 
-    private void RemoveOptimistic(Guid channelId, Guid optimisticId)
+    private void RemoveOptimistic(Guid topicId, Guid optimisticId)
     {
-        if (!_byConversation.TryGetValue(channelId, out var obs)) return;
+        if (!_byConversation.TryGetValue(topicId, out var obs)) return;
         obs.Set(obs.Value.Where(m => m.Id != optimisticId).ToList());
     }
 
@@ -348,8 +368,12 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         _hubSubs.Clear();
     }
 
-    private sealed class ChannelState
+    private enum TopicKind { Channel, Conversation }
+
+    private sealed class TopicState
     {
+        public TopicState(TopicKind kind) => Kind = kind;
+        public TopicKind Kind { get; }
         public bool InitialLoaded;
         public bool LoadingOlder;
         public string? NextCursor;
