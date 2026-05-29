@@ -11,9 +11,12 @@ public interface IUserDirectory
 {
     UserSummary Get(Guid id);
     Task EnsureAsync(Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<UserSummaryWithAvatar>> SearchAsync(string query, int take = 10, CancellationToken ct = default);
     void Seed(UserSummary user);
     event Action<Guid>? Updated;
 }
+
+public sealed record UserSummaryWithAvatar(Guid Id, string DisplayName, string Username, string? AvatarUrl);
 
 public sealed class HttpUserDirectory : IUserDirectory
 {
@@ -79,4 +82,29 @@ public sealed class HttpUserDirectory : IUserDirectory
     }
 
     private sealed record UserByIdDto(Guid UserId, string Username, string DisplayName, string? Bio, string? AvatarUrl, string Version);
+
+    public async Task<IReadOnlyList<UserSummaryWithAvatar>> SearchAsync(string query, int take = 10, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"api/v1/users/search?q={Uri.EscapeDataString(query ?? string.Empty)}&take={take}";
+            var resp = await _http.GetAsync(url, ct);
+            if (!resp.IsSuccessStatusCode) return Array.Empty<UserSummaryWithAvatar>();
+            var body = await resp.Content.ReadFromJsonAsync<SearchResponseDto>(cancellationToken: ct);
+            if (body is null) return Array.Empty<UserSummaryWithAvatar>();
+            foreach (var match in body.Results)
+                Seed(new UserSummary(match.UserId, match.DisplayName, match.Username));
+            return body.Results
+                .Select(m => new UserSummaryWithAvatar(m.UserId, m.DisplayName, m.Username, m.AvatarUrl))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "User search failed for query '{Query}'.", query);
+            return Array.Empty<UserSummaryWithAvatar>();
+        }
+    }
+
+    private sealed record SearchResponseDto(IReadOnlyList<UserSearchMatchDto> Results);
+    private sealed record UserSearchMatchDto(Guid UserId, string Username, string DisplayName, string? AvatarUrl);
 }

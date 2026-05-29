@@ -15,6 +15,15 @@ public sealed class UsersController : ControllerBase
 
     public UsersController(IMediator mediator) => _mediator = mediator;
 
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(SearchUsersResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] int take = 10, CancellationToken ct = default)
+    {
+        var meId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new SearchUsersQuery(q ?? string.Empty, meId, take), ct);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(GetUserByIdResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

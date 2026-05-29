@@ -1,6 +1,7 @@
 @inject NavigationManager Nav
 @inject IChannelService Channels
 @inject IDirectMessageService DirectMessages
+@inject IUserDirectory Users
 @inject IToastService Toasts
 @implements IDisposable
 
@@ -95,11 +96,34 @@
         <ChildContent>
             <div class="create-form">
                 <div class="field">
-                    <span class="lbl">User id</span>
-                    <TextField Value="@_newDmUserId" ValueChanged="@(v => _newDmUserId = v ?? string.Empty)"
-                               Placeholder="00000000-0000-0000-0000-000000000000" />
+                    <span class="lbl">Find a user</span>
+                    <TextField Value="@_newDmQuery"
+                               ValueChanged="@OnDmQueryChanged"
+                               Placeholder="Search by username or display name" />
                 </div>
-                <div class="hint">User search is coming in a later step. For now, paste the recipient's user id.</div>
+                @if (_searchingDm)
+                {
+                    <div class="hint">Searching…</div>
+                }
+                else if (_dmResults.Count == 0 && !string.IsNullOrWhiteSpace(_newDmQuery))
+                {
+                    <div class="hint">No users found.</div>
+                }
+                else if (_dmResults.Count > 0)
+                {
+                    <div class="user-results">
+                        @foreach (var user in _dmResults)
+                        {
+                            <button type="button" class="user-result" @onclick="@(() => StartDmAsync(user.Id))" disabled="@_creatingDm">
+                                <Avatar Name="@user.DisplayName" ImageUrl="@user.AvatarUrl" Size="Avatar.AvatarSize.Small" />
+                                <span class="user-result-text">
+                                    <span class="display-name">@user.DisplayName</span>
+                                    <span class="username">@@@user.Username</span>
+                                </span>
+                            </button>
+                        }
+                    </div>
+                }
                 @if (!string.IsNullOrEmpty(_newDmError))
                 {
                     <div class="form-error">@_newDmError</div>
@@ -108,9 +132,6 @@
         </ChildContent>
         <Footer>
             <Button Variant="Button.ButtonVariant.Ghost" OnClick="CloseNewDm">Cancel</Button>
-            <Button Variant="Button.ButtonVariant.Primary"
-                    Disabled="@(_creatingDm || string.IsNullOrWhiteSpace(_newDmUserId))"
-                    OnClick="CreateDmAsync">@(_creatingDm ? "Opening…" : "Open")</Button>
         </Footer>
     </Modal>
 }
@@ -131,7 +152,10 @@
 
     private bool _newDmOpen;
     private bool _creatingDm;
-    private string _newDmUserId = string.Empty;
+    private string _newDmQuery = string.Empty;
+    private IReadOnlyList<UserSummaryWithAvatar> _dmResults = Array.Empty<UserSummaryWithAvatar>();
+    private bool _searchingDm;
+    private CancellationTokenSource? _dmSearchCts;
     private string? _newDmError;
 
     private IEnumerable<ChannelSummaryDto> FilteredChannels =>
@@ -167,6 +191,8 @@
         Nav.LocationChanged -= OnLocation;
         _channelsSub?.Dispose();
         _directsSub?.Dispose();
+        _dmSearchCts?.Cancel();
+        _dmSearchCts?.Dispose();
     }
 
     private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
@@ -204,19 +230,50 @@
 
     private void CloseNewDm()
     {
+        _dmSearchCts?.Cancel();
+        _dmSearchCts = null;
         _newDmOpen = false;
         _newDmError = null;
-        _newDmUserId = string.Empty;
+        _newDmQuery = string.Empty;
+        _dmResults = Array.Empty<UserSummaryWithAvatar>();
+        _searchingDm = false;
     }
 
-    private async Task CreateDmAsync()
+    private async Task OnDmQueryChanged(string? value)
     {
+        _newDmQuery = value ?? string.Empty;
         _newDmError = null;
-        if (!Guid.TryParse(_newDmUserId?.Trim(), out var otherId))
+
+        _dmSearchCts?.Cancel();
+        if (string.IsNullOrWhiteSpace(_newDmQuery))
         {
-            _newDmError = "Enter a valid user id (GUID).";
+            _dmResults = Array.Empty<UserSummaryWithAvatar>();
+            _searchingDm = false;
             return;
         }
+
+        var cts = new CancellationTokenSource();
+        _dmSearchCts = cts;
+        _searchingDm = true;
+        try
+        {
+            await Task.Delay(200, cts.Token); // debounce
+            var results = await Users.SearchAsync(_newDmQuery, take: 10, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            _dmResults = results;
+        }
+        catch (TaskCanceledException) { }
+        finally
+        {
+            if (!cts.IsCancellationRequested)
+                _searchingDm = false;
+        }
+    }
+
+    private async Task StartDmAsync(Guid otherId)
+    {
+        if (_creatingDm) return;
+        _newDmError = null;
         _creatingDm = true;
         try
         {
