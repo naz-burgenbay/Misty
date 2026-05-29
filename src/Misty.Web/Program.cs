@@ -12,10 +12,28 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"]
+    ?? throw new InvalidOperationException("Api:BaseUrl is not configured.");
+
+// Auth services. HttpAuthService receives a bare HttpClient so login and refresh requests don't recurse through AuthorizationMessageHandler (which depends on IAuthService).
+builder.Services.AddScoped<ILocalStorage, JsLocalStorage>();
+builder.Services.AddScoped<HttpAuthService>(sp => new HttpAuthService(
+    new HttpClient { BaseAddress = new Uri(apiBaseUrl) },
+    sp.GetRequiredService<ILocalStorage>(),
+    sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HttpAuthService>>()));
+builder.Services.AddScoped<IAuthService>(sp => sp.GetRequiredService<HttpAuthService>());
+
+// The shared API HttpClient: every other service uses this. It runs requests through AuthorizationMessageHandler, which attaches the bearer token and retries once after a forced refresh on 401.
+builder.Services.AddScoped(sp =>
+{
+    var handler = new AuthorizationMessageHandler(sp.GetRequiredService<IAuthService>())
+    {
+        InnerHandler = new HttpClientHandler(),
+    };
+    return new HttpClient(handler) { BaseAddress = new Uri(apiBaseUrl) };
+});
 
 // Client-side service skeletons. All are Scoped, which in Blazor WASM behaves as singleton-within-a-session, the right lifetime for per-tab state (auth, hub, observable stores) that must reset on sign-out by replacing the root scope, not by manual cleanup inside the service.
-builder.Services.AddScoped<IAuthService, StubAuthService>();
 builder.Services.AddScoped<ISignalRClient, StubSignalRClient>();
 builder.Services.AddScoped<IMessageStore, StubMessageStore>();
 builder.Services.AddScoped<IPresenceService, StubPresenceService>();
@@ -23,4 +41,9 @@ builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
 builder.Services.AddScoped<IToastService, StubToastService>();
 builder.Services.AddScoped<IModalService, StubModalService>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+
+// Restore session from the refresh token in localStorage before the root component renders, so the initial route resolves with the right auth state.
+await host.Services.GetRequiredService<IAuthService>().InitializeAsync();
+
+await host.RunAsync();

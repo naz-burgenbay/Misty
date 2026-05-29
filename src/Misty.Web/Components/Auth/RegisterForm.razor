@@ -1,33 +1,63 @@
+@inject IAuthService Auth
+@inject NavigationManager Nav
+
 @code {
     private string _displayName = string.Empty;
     private string _username = string.Empty;
     private string _email = string.Empty;
     private string _password = string.Empty;
+    private string? _error;
+    private bool _busy;
+
+    private async Task RegisterAsync()
+    {
+        if (_busy) return;
+        _error = null;
+        _busy = true;
+        try
+        {
+            await Auth.RegisterAsync(_displayName.Trim(), _username.Trim(), _email.Trim(), _password);
+            Nav.NavigateTo("/", forceLoad: false);
+        }
+        catch (AuthException ex) { _error = ex.Message; }
+        catch (HttpRequestException) { _error = "Network error. Please try again."; }
+        catch (Exception) { _error = "Registration failed. Please try again."; }
+        finally { _busy = false; }
+    }
 }
 
 <h1 class="heading">Create your account</h1>
 <p class="sub">Join the conversation on Misty.</p>
 
-<div class="fields">
-    <div class="field">
-        <span class="lbl">Display name</span>
-        <TextField Value="@_displayName" ValueChanged="@(v => _displayName = v ?? string.Empty)" Placeholder="Alex Park" />
+<EditForm Model="this" OnValidSubmit="RegisterAsync">
+    <div class="fields">
+        <div class="field">
+            <span class="lbl">Display name</span>
+            <TextField Value="@_displayName" ValueChanged="@(v => _displayName = v ?? string.Empty)" Placeholder="Alex Park" />
+        </div>
+        <div class="field">
+            <span class="lbl">Username</span>
+            <TextField Value="@_username" ValueChanged="@(v => _username = v ?? string.Empty)" Placeholder="alex" />
+        </div>
+        <div class="field">
+            <span class="lbl">Email</span>
+            <TextField Value="@_email" ValueChanged="@(v => _email = v ?? string.Empty)" Placeholder="you@example.com" Type="email" />
+        </div>
+        <div class="field">
+            <span class="lbl">Password</span>
+            <TextField Value="@_password" ValueChanged="@(v => _password = v ?? string.Empty)" Placeholder="At least 8 characters" Type="password" />
+        </div>
     </div>
-    <div class="field">
-        <span class="lbl">Username</span>
-        <TextField Value="@_username" ValueChanged="@(v => _username = v ?? string.Empty)" Placeholder="alex" />
-    </div>
-    <div class="field">
-        <span class="lbl">Email</span>
-        <TextField Value="@_email" ValueChanged="@(v => _email = v ?? string.Empty)" Placeholder="you@example.com" Type="email" />
-    </div>
-    <div class="field">
-        <span class="lbl">Password</span>
-        <TextField Value="@_password" ValueChanged="@(v => _password = v ?? string.Empty)" Placeholder="At least 8 characters" Type="password" />
-    </div>
-</div>
 
-<Button Variant="Button.ButtonVariant.Primary">Create account</Button>
+    @if (_error is not null)
+    {
+        <p class="error" role="alert">@_error</p>
+    }
+
+    <Button Variant="Button.ButtonVariant.Primary" Type="submit" Disabled="_busy">
+        @(_busy ? "Creating…" : "Create account")
+    </Button>
+</EditForm>
 
 <div class="meta">
     <span>Already have one?</span>

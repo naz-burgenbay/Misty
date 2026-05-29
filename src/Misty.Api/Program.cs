@@ -3,6 +3,7 @@ using Azure.Storage.Blobs;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -60,11 +61,25 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog((ctx, lc) => lc
     .ReadFrom.Configuration(ctx.Configuration)
+    .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
     .WriteTo.Console());
 
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+const string WebClientCorsPolicy = "WebClient";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5192", "https://localhost:7103" };
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(WebClientCorsPolicy, policy => policy
+        .WithOrigins(allowedOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials());
+});
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(RegisterUserCommand).Assembly));
@@ -155,7 +170,7 @@ builder.Services.AddHostedService<AIResponseWorker>();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("sql")
     .AddRedis(redisConnectionString, "redis")
-    .AddAzureServiceBusTopic(serviceBusConnectionString, "message-events", name: "service-bus");
+    .AddCheck("service-bus", new ServiceBusSenderHealthCheck(serviceBusConnectionString, "message-events"));
 
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("Misty.Api"))
@@ -165,9 +180,6 @@ builder.Services.AddOpenTelemetry()
             .AddAspNetCoreInstrumentation()
             .AddEntityFrameworkCoreInstrumentation()
             .AddHttpClientInstrumentation();
-
-        if (builder.Environment.IsDevelopment())
-            tracing.AddConsoleExporter();
     });
 
 var blobConnectionString = builder.Configuration.GetConnectionString("BlobStorage")
@@ -195,6 +207,7 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
+app.UseCors(WebClientCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -204,7 +217,30 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            totalDuration = report.TotalDuration.TotalMilliseconds,
+            entries = report.Entries.ToDictionary(
+                e => e.Key,
+                e => new
+                {
+                    status = e.Value.Status.ToString(),
+                    description = e.Value.Description,
+                    duration = e.Value.Duration.TotalMilliseconds,
+                    error = e.Value.Exception?.Message,
+                    exceptionType = e.Value.Exception?.GetType().FullName,
+                    data = e.Value.Data
+                })
+        });
+        await context.Response.WriteAsync(payload);
+    }
+});
 app.MapControllers();
 app.MapHub<MistyHub>("/hubs/realtime");
 

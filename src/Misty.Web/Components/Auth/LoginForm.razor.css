@@ -47,3 +47,10 @@
 .meta a {
     color: var(--color-accent-text);
 }
+
+.error {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--color-status-danger);
+    margin: 0 0 var(--sp-3);
+}

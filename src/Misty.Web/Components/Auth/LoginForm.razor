@@ -1,26 +1,70 @@
+@inject IAuthService Auth
+@inject NavigationManager Nav
+
 @code {
-    private string _email = string.Empty;
+    private string _username = string.Empty;
     private string _password = string.Empty;
+    private string? _error;
+    private bool _busy;
+
+    private async Task SignInAsync()
+    {
+        if (_busy) return;
+        _error = null;
+        _busy = true;
+        try
+        {
+            await Auth.SignInAsync(_username.Trim(), _password);
+            Nav.NavigateTo(ReturnUrl(), forceLoad: false);
+        }
+        catch (AuthException ex) { _error = ex.Message; }
+        catch (HttpRequestException) { _error = "Network error. Please try again."; }
+        catch (Exception) { _error = "Sign-in failed. Please try again."; }
+        finally { _busy = false; }
+    }
+
+    private string ReturnUrl()
+    {
+        var query = new Uri(Nav.Uri).Query.TrimStart('?');
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var eq = pair.IndexOf('=');
+            if (eq < 0) continue;
+            if (pair[..eq] == "returnUrl")
+            {
+                var v = Uri.UnescapeDataString(pair[(eq + 1)..]);
+                return string.IsNullOrWhiteSpace(v) ? "/" : "/" + v.TrimStart('/');
+            }
+        }
+        return "/";
+    }
 }
 
 <h1 class="heading">Welcome back</h1>
 <p class="sub">Sign in to your Misty account.</p>
 
-<div class="fields">
-    <div class="field">
-        <span class="lbl">Email</span>
-        <TextField Value="@_email" ValueChanged="@(v => _email = v ?? string.Empty)" Placeholder="you@example.com" Type="email" />
+<EditForm Model="this" OnValidSubmit="SignInAsync">
+    <div class="fields">
+        <div class="field">
+            <span class="lbl">Username</span>
+            <TextField Value="@_username" ValueChanged="@(v => _username = v ?? string.Empty)" Placeholder="your username" />
+        </div>
+        <div class="field">
+            <span class="lbl">Password</span>
+            <TextField Value="@_password" ValueChanged="@(v => _password = v ?? string.Empty)" Placeholder="••••••••" Type="password" />
+        </div>
     </div>
-    <div class="field">
-        <span class="lbl">Password</span>
-        <TextField Value="@_password" ValueChanged="@(v => _password = v ?? string.Empty)" Placeholder="••••••••" Type="password" />
-    </div>
-</div>
 
-<Button Variant="Button.ButtonVariant.Primary">Sign in</Button>
+    @if (_error is not null)
+    {
+        <p class="error" role="alert">@_error</p>
+    }
+
+    <Button Variant="Button.ButtonVariant.Primary" Type="submit" Disabled="_busy">
+        @(_busy ? "Signing in…" : "Sign in")
+    </Button>
+</EditForm>
 
 <div class="meta">
-    <a href="#">Forgot password?</a>
-    <span>·</span>
     <a href="/register">Create account</a>
 </div>

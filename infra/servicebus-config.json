@@ -1,8 +1,11 @@
 {
   "UserConfig": {
+    "Logging": {
+      "Type": "console"
+    },
     "Namespaces": [
       {
-        "Name": "misty-dev",
+        "Name": "sbemulatorns",
         "Queues": [],
         "Topics": [
           {
