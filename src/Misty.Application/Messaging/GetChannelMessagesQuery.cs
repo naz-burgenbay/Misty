@@ -25,7 +25,15 @@ public record MessageDto(
     DateTime CreatedAt,
     DateTime? EditedAt,
     bool IsDeleted,
-    IReadOnlyList<ReactionSummaryDto> Reactions);
+    IReadOnlyList<ReactionSummaryDto> Reactions,
+    IReadOnlyList<AttachmentDto> Attachments);
+
+public record AttachmentDto(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    string CdnUrl);
 
 public record ParentPreviewDto(
     Guid Id,
@@ -43,15 +51,18 @@ public sealed class GetChannelMessagesQueryHandler
 {
     private readonly IMessageRepository _messages;
     private readonly IReactionRepository _reactions;
+    private readonly IAttachmentRepository _attachments;
     private readonly IPermissionService _permissions;
 
     public GetChannelMessagesQueryHandler(
         IMessageRepository messages,
         IReactionRepository reactions,
+        IAttachmentRepository attachments,
         IPermissionService permissions)
     {
         _messages = messages;
         _reactions = reactions;
+        _attachments = attachments;
         _permissions = permissions;
     }
 
@@ -84,6 +95,7 @@ public sealed class GetChannelMessagesQueryHandler
 
         var messageIds = messages.Select(m => m.Id).ToList();
         var reactionsByMessage = await _reactions.GetAggregatesAsync(messageIds, request.UserId, ct);
+        var attachmentsByMessage = await _attachments.GetByMessageIdsAsync(messageIds, ct);
 
         var dtos = messages.Select(m =>
         {
@@ -100,6 +112,10 @@ public sealed class GetChannelMessagesQueryHandler
                     .ToList()
                 : new List<ReactionSummaryDto>();
 
+            var attachments = attachmentsByMessage.TryGetValue(m.Id, out var rows)
+                ? rows.Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.CdnUrl)).ToList()
+                : new List<AttachmentDto>();
+
             return new MessageDto(
                 m.Id,
                 m.AuthorId,
@@ -109,7 +125,8 @@ public sealed class GetChannelMessagesQueryHandler
                 m.CreatedAt,
                 m.EditedAt,
                 m.IsDeleted,
-                reactions);
+                reactions,
+                attachments);
         }).ToList();
 
         return new GetChannelMessagesResponse(dtos, nextCursor);

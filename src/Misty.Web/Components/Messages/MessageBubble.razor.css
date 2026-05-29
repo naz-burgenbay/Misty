@@ -69,3 +69,12 @@
     height: 13px;
     stroke-width: 1.75;
 }
+
+.bubble { flex-direction: column; align-items: stretch; }
+.attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.att-image img { max-width: 280px; max-height: 240px; border-radius: var(--radius-md); display: block; }
+.att-file { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: rgba(0,0,0,0.04); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-decoration: none; color: inherit; font-size: 12px; }
+.att-file:hover { background: rgba(0,0,0,0.08); }
+.att-name { font-weight: var(--fw-medium); }
+.att-size { color: var(--color-text-muted); }
+

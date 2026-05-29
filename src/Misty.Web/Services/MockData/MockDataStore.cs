@@ -15,6 +15,13 @@ public sealed record MockUser(
 
 public sealed record MockReaction(string Emoji, int Count, bool ReactedByMe);
 
+public sealed record MockAttachment(
+    Guid Id,
+    string FileName,
+    string ContentType,
+    long SizeBytes,
+    string CdnUrl);
+
 public sealed record MockParentPreview(
     Guid Id,
     Guid AuthorId,
@@ -30,7 +37,8 @@ public sealed record MockMessage(
     bool IsEdited = false,
     Guid? ParentMessageId = null,
     MockParentPreview? ParentPreview = null,
-    IReadOnlyList<MockReaction>? Reactions = null);
+    IReadOnlyList<MockReaction>? Reactions = null,
+    IReadOnlyList<MockAttachment>? Attachments = null);
 
 public sealed record MockMembership(
     Guid UserId,

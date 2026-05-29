@@ -5,6 +5,11 @@
 @code {
     [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
     [Parameter] public EventCallback<MockMessage> OnReply { get; set; }
+    [Parameter] public bool ReactionsEnabled { get; set; }
+    [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnAddReaction { get; set; }
+    [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnRemoveReaction { get; set; }
+    [Parameter] public bool CanModerate { get; set; }
+    [Parameter] public EventCallback<Guid> OnModerateUser { get; set; }
 
     private UserSummary _author = default!;
     private Guid _watchedAuthor;
@@ -12,6 +17,8 @@
     private bool IsMine => Message.AuthorId == Auth.CurrentUser?.Id;
     private bool IsAi => _author.IsAi;
     private bool IsTombstone => Message.IsTombstone;
+    private IReadOnlyList<MockReaction> ReactionList =>
+        Message.Reactions ?? (IReadOnlyList<MockReaction>)Array.Empty<MockReaction>();
 
     protected override void OnInitialized() => Users.Updated += OnUserUpdated;
 
@@ -31,6 +38,15 @@
 
     private Task ReplyClicked()
         => OnReply.HasDelegate ? OnReply.InvokeAsync(Message) : Task.CompletedTask;
+
+    private Task AddReactionAsync(string emoji)
+        => OnAddReaction.HasDelegate ? OnAddReaction.InvokeAsync((Message.Id, emoji)) : Task.CompletedTask;
+
+    private Task RemoveReactionAsync(string emoji)
+        => OnRemoveReaction.HasDelegate ? OnRemoveReaction.InvokeAsync((Message.Id, emoji)) : Task.CompletedTask;
+
+    private Task ModerateClicked()
+        => OnModerateUser.HasDelegate ? OnModerateUser.InvokeAsync(Message.AuthorId) : Task.CompletedTask;
 
     public void Dispose() => Users.Updated -= OnUserUpdated;
 }
@@ -60,7 +76,13 @@
 
         <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
 
-        @if (!IsTombstone && Message.Reactions is { Count: > 0 })
+        @if (!IsTombstone && ReactionsEnabled)
+        {
+            <ReactionsRow Reactions="ReactionList"
+                          OnAdd="AddReactionAsync"
+                          OnRemove="RemoveReactionAsync" />
+        }
+        else if (!IsTombstone && Message.Reactions is { Count: > 0 })
         {
             <ReactionsRow Reactions="Message.Reactions" />
         }
@@ -72,6 +94,12 @@
             <IconButton Title="Reply" OnClick="ReplyClicked">
                 <Blazicon Svg="Lucide.CornerUpLeft" />
             </IconButton>
+            @if (CanModerate && !IsMine)
+            {
+                <IconButton Title="Moderate user" OnClick="ModerateClicked">
+                    <Blazicon Svg="Lucide.ShieldAlert" />
+                </IconButton>
+            }
         </div>
     }
 </div>

@@ -65,14 +65,14 @@
 
     private string OtherName => _other?.DisplayName ?? "…";
 
-    private async Task SendAsync(string content)
+    private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)
     {
-        if (string.IsNullOrWhiteSpace(content)) return;
+        if (string.IsNullOrWhiteSpace(submit.Content)) return;
         var parentId = _replyingTo?.Id;
         _replyingTo = null;
         try
         {
-            await MessageStore.SendAsync(ConversationId, content, parentId);
+            await MessageStore.SendAsync(ConversationId, submit.Content, parentId);
         }
         catch (Exception ex)
         {
@@ -137,6 +137,7 @@ else
 
             <MessageComposer Placeholder="@($"Message {OtherName}")"
                              ReplyingTo="_replyingTo"
+                             AttachmentsEnabled="false"
                              OnClearReply="@(() => _replyingTo = null)"
                              OnSend="SendAsync" />
         </div>

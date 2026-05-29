@@ -46,6 +46,7 @@ builder.Services.AddScoped<IDirectMessageService, HttpDirectMessageService>();
 builder.Services.AddScoped<IMessageStore, HttpMessageStore>();
 builder.Services.AddScoped<IPresenceService, StubPresenceService>();
 builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
+builder.Services.AddScoped<IModerationService, HttpModerationService>();
 builder.Services.AddScoped<IToastService, StubToastService>();
 builder.Services.AddScoped<IModalService, StubModalService>();
 

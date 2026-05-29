@@ -22,6 +22,7 @@
 
     private bool _membersOpen;
     private bool _settingsOpen;
+    private Guid? _moderationTarget;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -67,19 +68,38 @@
     private bool CanModerate   => _myPermissions.HasFlag(ChannelPermissionFlags.ModerateMembers);
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
 
-    private async Task SendAsync(string content)
+    private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)
     {
-        if (string.IsNullOrWhiteSpace(content)) return;
+        if (string.IsNullOrWhiteSpace(submit.Content) && submit.Attachment is null) return;
         var parentId = _replyingTo?.Id;
         _replyingTo = null;
         try
         {
-            await MessageStore.SendAsync(ChannelId, content, parentId);
+            var messageId = await MessageStore.SendAsync(ChannelId, submit.Content ?? string.Empty, parentId);
+            if (submit.Attachment is { } file && messageId is { } mid)
+            {
+                using var stream = file.OpenReadStream(25 * 1024 * 1024);
+                await MessageStore.UploadAttachmentAsync(ChannelId, mid, file.Name,
+                    string.IsNullOrEmpty(file.ContentType) ? "application/octet-stream" : file.ContentType,
+                    file.Size, stream);
+            }
         }
         catch (Exception ex)
         {
             Toasts.Show($"Send failed: {ex.Message}", ToastKind.Error);
         }
+    }
+
+    private async Task AddReactionAsync((Guid MessageId, string EmojiCode) t)
+    {
+        try { await MessageStore.AddReactionAsync(ChannelId, t.MessageId, t.EmojiCode); }
+        catch (Exception ex) { Toasts.Show($"Reaction failed: {ex.Message}", ToastKind.Error); }
+    }
+
+    private async Task RemoveReactionAsync((Guid MessageId, string EmojiCode) t)
+    {
+        try { await MessageStore.RemoveReactionAsync(ChannelId, t.MessageId, t.EmojiCode); }
+        catch (Exception ex) { Toasts.Show($"Reaction failed: {ex.Message}", ToastKind.Error); }
     }
 
     private async Task LoadOlderAsync()
@@ -142,7 +162,12 @@ else
                            HasMoreOlder="@MessageStore.HasMoreOlder(ChannelId)"
                            LoadingOlder="_loadingOlder"
                            OnLoadOlder="LoadOlderAsync"
-                           OnReply="@(EventCallback.Factory.Create<MockMessage>(this, m => _replyingTo = m))" />
+                           OnReply="@(EventCallback.Factory.Create<MockMessage>(this, m => _replyingTo = m))"
+                           ReactionsEnabled="true"
+                           OnAddReaction="AddReactionAsync"
+                           OnRemoveReaction="RemoveReactionAsync"
+                           CanModerate="CanModerate"
+                           OnModerateUser="@(EventCallback.Factory.Create<Guid>(this, id => _moderationTarget = id))" />
 
             <MessageComposer Placeholder="@($"Message #{_channel.Name}")"
                              ReplyingTo="_replyingTo"
@@ -191,4 +216,8 @@ else
             </div>
         </div>
     </Drawer>
+    <ModerationActionModal Open="@(_moderationTarget is not null)"
+                           ChannelId="ChannelId"
+                           TargetUserId="_moderationTarget"
+                           OnClose="@(() => _moderationTarget = null)" />
 }

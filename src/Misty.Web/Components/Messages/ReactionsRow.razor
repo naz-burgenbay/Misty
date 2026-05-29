@@ -1,16 +1,50 @@
 @code {
+    private static readonly string[] QuickEmoji = new[] { "👍", "❤️", "🎉", "🚀", "😄", "🙏", "👀", "🔥" };
+
     [Parameter, EditorRequired] public IReadOnlyList<MockReaction> Reactions { get; set; } = Array.Empty<MockReaction>();
+    [Parameter] public EventCallback<string> OnAdd { get; set; }
+    [Parameter] public EventCallback<string> OnRemove { get; set; }
+
+    private bool _pickerOpen;
+
+    private Task ToggleAsync(MockReaction r) =>
+        r.ReactedByMe ? OnRemove.InvokeAsync(r.Emoji) : OnAdd.InvokeAsync(r.Emoji);
+
+    private async Task PickAsync(string emoji)
+    {
+        _pickerOpen = false;
+        var existing = Reactions.FirstOrDefault(x => x.Emoji == emoji);
+        if (existing is { ReactedByMe: true })
+            await OnRemove.InvokeAsync(emoji);
+        else
+            await OnAdd.InvokeAsync(emoji);
+    }
 }
 
 <div class="reactions">
     @foreach (var r in Reactions)
     {
-        <button class="chip @(r.ReactedByMe ? "active" : "")" type="button">
-            <span class="emoji">@r.Emoji</span>
-            <span class="count">@r.Count</span>
+        var reaction = r;
+        <button class="chip @(reaction.ReactedByMe ? "active" : "")" type="button"
+                @onclick="() => ToggleAsync(reaction)">
+            <span class="emoji">@reaction.Emoji</span>
+            <span class="count">@reaction.Count</span>
         </button>
     }
-    <button class="add" type="button" title="Add reaction">
-        <Blazicon Svg="Lucide.SmilePlus" />
-    </button>
+    <div class="add-wrap">
+        <button class="add" type="button" title="Add reaction"
+                @onclick="() => _pickerOpen = !_pickerOpen">
+            <Blazicon Svg="Lucide.SmilePlus" />
+        </button>
+        @if (_pickerOpen)
+        {
+            <div class="emoji-popover" @onclick:stopPropagation="true">
+                @foreach (var e in QuickEmoji)
+                {
+                    var emoji = e;
+                    <button type="button" class="emoji-option" @onclick="() => PickAsync(emoji)">@emoji</button>
+                }
+            </div>
+        }
+    </div>
 </div>

@@ -14,7 +14,7 @@ public sealed record MessageDeletedEvent(Guid MessageId, Guid? ChannelId, Guid? 
     bool IsTombstone);
 
 public sealed record ReactionChangedEvent(Guid MessageId, Guid? ChannelId, Guid UserId,
-    string Emoji, bool Added);
+    string EmojiCode, string Action);
 
 public sealed record PermissionInvalidationEvent(Guid? UserId, Guid ChannelId);
 

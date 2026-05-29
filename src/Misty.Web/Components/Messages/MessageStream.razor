@@ -7,6 +7,11 @@
     [Parameter] public bool LoadingOlder { get; set; }
     [Parameter] public EventCallback OnLoadOlder { get; set; }
     [Parameter] public EventCallback<MockMessage> OnReply { get; set; }
+    [Parameter] public bool ReactionsEnabled { get; set; }
+    [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnAddReaction { get; set; }
+    [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnRemoveReaction { get; set; }
+    [Parameter] public bool CanModerate { get; set; }
+    [Parameter] public EventCallback<Guid> OnModerateUser { get; set; }
 
     private ElementReference _scrollEl;
     private DotNetObjectReference<MessageStream>? _selfRef;
@@ -63,7 +68,13 @@
 
         @foreach (var msg in Messages)
         {
-            <MessageRow Message="msg" OnReply="OnReply" />
+            <MessageRow Message="msg"
+                        OnReply="OnReply"
+                        ReactionsEnabled="ReactionsEnabled"
+                        OnAddReaction="OnAddReaction"
+                        OnRemoveReaction="OnRemoveReaction"
+                        CanModerate="CanModerate"
+                        OnModerateUser="OnModerateUser" />
         }
     </div>
 </div>

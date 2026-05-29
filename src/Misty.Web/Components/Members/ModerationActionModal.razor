@@ -1,0 +1,90 @@
+@using Misty.Web.Services.Communication
+@using Misty.Web.Services.Users
+@using Misty.Web.Services.Ux
+
+@inject IModerationService Moderation
+@inject IUserDirectory Users
+@inject IToastService Toasts
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public Guid ChannelId { get; set; }
+    [Parameter] public Guid? TargetUserId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _kind = "Mute";
+    private string? _reason;
+    private bool _hasExpiry;
+    private DateTime _expiresAt = DateTime.UtcNow.AddHours(1);
+    private bool _submitting;
+
+    private string TargetName => TargetUserId is { } id ? Users.Get(id).DisplayName : string.Empty;
+
+    private async Task SubmitAsync()
+    {
+        if (TargetUserId is not { } targetId || string.IsNullOrWhiteSpace(_reason) || _submitting) return;
+        _submitting = true;
+        try
+        {
+            var kind = _kind switch
+            {
+                "Ban" => ModerationActionKind.Ban,
+                "Warn" => ModerationActionKind.Warn,
+                _ => ModerationActionKind.Mute,
+            };
+            await Moderation.ApplyAsync(ChannelId, targetId, kind, _reason!,
+                _hasExpiry ? DateTime.SpecifyKind(_expiresAt, DateTimeKind.Utc) : null);
+            Toasts.Show($"{kind} applied to {TargetName}.", ToastKind.Success);
+            _reason = null;
+            await OnClose.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Moderation failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}
+
+<Modal Open="Open" Title="@($"Moderate {TargetName}")" OnClose="OnClose">
+    <ChildContent>
+    <div class="moderation-modal">
+        <label class="field-label">Action</label>
+        <SegmentedControl Options="@(new [] { "Mute", "Warn", "Ban" })"
+                          Value="_kind"
+                          ValueChanged="v => _kind = v" />
+
+        <label class="field-label">Reason</label>
+        <TextField Value="_reason" ValueChanged="v => _reason = v" Placeholder="Why is this action being taken?" />
+
+        <label class="field-label">
+            <input type="checkbox" checked="@_hasExpiry" @onchange="e => _hasExpiry = (bool)e.Value!" />
+            Set expiry
+        </label>
+        @if (_hasExpiry)
+        {
+            <input type="datetime-local" class="expiry-input"
+                   value="@_expiresAt.ToString("yyyy-MM-ddTHH:mm")"
+                   @onchange="e => { if (DateTime.TryParse(e.Value?.ToString(), out var v)) _expiresAt = v; }" />
+        }
+    </div>
+    </ChildContent>
+
+    <Footer>
+        <Button Variant="Button.ButtonVariant.Ghost" OnClick="OnClose">Cancel</Button>
+        <Button Variant="Button.ButtonVariant.Primary"
+                Disabled="@(_submitting || string.IsNullOrWhiteSpace(_reason))"
+                OnClick="SubmitAsync">
+            @(_submitting ? "Applying…" : "Apply")
+        </Button>
+    </Footer>
+</Modal>
+
+<style>
+.moderation-modal { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 320px; }
+.moderation-modal .field-label { font-size: 13px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px; }
+.moderation-modal .expiry-input { padding: 6px 8px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); }
+</style>

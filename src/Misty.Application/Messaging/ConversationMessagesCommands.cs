@@ -96,15 +96,18 @@ public sealed class GetConversationMessagesQueryHandler
 {
     private readonly IMessageRepository _messages;
     private readonly IReactionRepository _reactions;
+    private readonly IAttachmentRepository _attachments;
     private readonly IConversationRepository _conversations;
 
     public GetConversationMessagesQueryHandler(
         IMessageRepository messages,
         IReactionRepository reactions,
+        IAttachmentRepository attachments,
         IConversationRepository conversations)
     {
         _messages = messages;
         _reactions = reactions;
+        _attachments = attachments;
         _conversations = conversations;
     }
 
@@ -134,6 +137,7 @@ public sealed class GetConversationMessagesQueryHandler
 
         var messageIds = messages.Select(m => m.Id).ToList();
         var reactionsByMessage = await _reactions.GetAggregatesAsync(messageIds, request.UserId, ct);
+        var attachmentsByMessage = await _attachments.GetByMessageIdsAsync(messageIds, ct);
 
         var dtos = messages.Select(m =>
         {
@@ -145,6 +149,10 @@ public sealed class GetConversationMessagesQueryHandler
                 ? aggs.Select(a => new ReactionSummaryDto(a.EmojiCode, a.Count, a.ReactedByMe)).ToList()
                 : new List<ReactionSummaryDto>();
 
+            var attachments = attachmentsByMessage.TryGetValue(m.Id, out var rows)
+                ? rows.Select(a => new AttachmentDto(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.CdnUrl)).ToList()
+                : new List<AttachmentDto>();
+
             return new MessageDto(
                 m.Id,
                 m.AuthorId,
@@ -154,7 +162,8 @@ public sealed class GetConversationMessagesQueryHandler
                 m.CreatedAt,
                 m.EditedAt,
                 m.IsDeleted,
-                reactions);
+                reactions,
+                attachments);
         }).ToList();
 
         return new GetChannelMessagesResponse(dtos, nextCursor);

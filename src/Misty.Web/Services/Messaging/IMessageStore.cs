@@ -19,8 +19,12 @@ public interface IMessageStore
     Task EnsureConversationLoadedAsync(Guid conversationId, CancellationToken ct = default);
     Task LoadOlderAsync(Guid conversationId, CancellationToken ct = default);
     bool HasMoreOlder(Guid conversationId);
-    Task SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
+    Task<Guid?> SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default);
+    Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default);
+    Task RemoveReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default);
+    Task<MockAttachment> UploadAttachmentAsync(Guid channelId, Guid messageId, string fileName,
+        string contentType, long sizeBytes, Stream content, CancellationToken ct = default);
 }
 
 public sealed class StubMessageStore : IMessageStore
@@ -42,15 +46,21 @@ public sealed class StubMessageStore : IMessageStore
     public Task LoadOlderAsync(Guid channelId, CancellationToken ct = default) => Task.CompletedTask;
     public bool HasMoreOlder(Guid channelId) => false;
 
-    public Task SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
+    public Task<Guid?> SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default)
     {
         var obs = GetConversation(conversationId);
         var optimistic = new MockMessage(Guid.NewGuid(), MockDataStore.MeId, content,
             DateTime.UtcNow, ParentMessageId: parentMessageId);
         obs.Set(obs.Value.Append(optimistic).ToList());
-        return Task.CompletedTask;
+        return Task.FromResult<Guid?>(optimistic.Id);
     }
+
+    public Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default) => Task.CompletedTask;
+    public Task RemoveReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<MockAttachment> UploadAttachmentAsync(Guid channelId, Guid messageId, string fileName,
+        string contentType, long sizeBytes, Stream content, CancellationToken ct = default)
+        => Task.FromResult(new MockAttachment(Guid.NewGuid(), fileName, contentType, sizeBytes, "#"));
 }
 
 public sealed class HttpMessageStore : IMessageStore, IDisposable
@@ -160,7 +170,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
     public bool HasMoreOlder(Guid topicId)
         => _topics.TryGetValue(topicId, out var s) && s.InitialLoaded && s.NextCursor is not null;
 
-    public async Task SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
+    public async Task<Guid?> SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
         CancellationToken ct = default)
     {
         // Unregistered ids keep the mock optimistic behaviour (dev-only gallery screens etc.).
@@ -170,7 +180,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             var optimistic2 = new MockMessage(Guid.NewGuid(), MockDataStore.MeId, content,
                 DateTime.UtcNow, ParentMessageId: parentMessageId);
             obs2.Set(obs2.Value.Append(optimistic2).ToList());
-            return;
+            return optimistic2.Id;
         }
 
         var meId = _auth.CurrentUser?.Id ?? Guid.Empty;
@@ -200,6 +210,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             var body = await resp.Content.ReadFromJsonAsync<SendMessageResponseDto>(cancellationToken: ct);
             if (body is not null)
                 ReplaceOptimistic(conversationId, idempotencyKey, body.MessageId, body.Content, body.CreatedAt, body.ParentMessageId);
+            return body?.MessageId;
         }
         catch (Exception ex)
         {
@@ -210,6 +221,103 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         }
     }
 
+    public async Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default)
+    {
+        // No optimistic update, the SignalR ReactionChanged echo fans the aggregated count back to us. Latency is acceptable for the demo and keeps state authoritative on the server.
+        using var resp = await _http.PostAsJsonAsync(
+            $"api/v1/channels/{channelId}/messages/{messageId}/reactions",
+            new AddReactionRequestDto(emojiCode), ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public async Task RemoveReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default)
+    {
+        var encoded = WebUtility.UrlEncode(emojiCode);
+        using var resp = await _http.DeleteAsync(
+            $"api/v1/channels/{channelId}/messages/{messageId}/reactions/{encoded}", ct);
+        resp.EnsureSuccessStatusCode();
+    }
+
+    public async Task<MockAttachment> UploadAttachmentAsync(Guid channelId, Guid messageId, string fileName,
+        string contentType, long sizeBytes, Stream content, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        var streamContent = new StreamContent(content);
+        streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(streamContent, "file", fileName);
+
+        using var resp = await _http.PostAsync(
+            $"api/v1/channels/{channelId}/messages/{messageId}/attachments", form, ct);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadFromJsonAsync<AttachmentResponseDto>(cancellationToken: ct)
+                   ?? throw new InvalidOperationException("Empty attachment upload response.");
+
+        var attachment = new MockAttachment(body.AttachmentId, body.FileName, body.ContentType, body.SizeBytes, body.CdnUrl);
+
+        // Locally augment the just-sent message so the uploader sees the attachment immediately. Other clients see it on next history load.
+        if (_byConversation.TryGetValue(channelId, out var obs))
+        {
+            var next = obs.Value.Select(m =>
+            {
+                if (m.Id != messageId) return m;
+                var list = m.Attachments is null ? new List<MockAttachment>() : new List<MockAttachment>(m.Attachments);
+                list.Add(attachment);
+                return m with { Attachments = list };
+            }).ToList();
+            obs.Set(next);
+        }
+
+        return attachment;
+    }
+
+    private void OnReactionChanged(ReactionChangedEvent evt)
+    {
+        if (evt.ChannelId is not { } channelId) return;
+        if (!_byConversation.TryGetValue(channelId, out var obs)) return;
+
+        var meId = _auth.CurrentUser?.Id ?? Guid.Empty;
+        var isAdd = string.Equals(evt.Action, "added", StringComparison.OrdinalIgnoreCase);
+        var byMe = evt.UserId == meId;
+
+        var next = obs.Value.Select(m =>
+        {
+            if (m.Id != evt.MessageId) return m;
+
+            var current = m.Reactions is null ? new List<MockReaction>() : new List<MockReaction>(m.Reactions);
+            var idx = current.FindIndex(r => r.Emoji == evt.EmojiCode);
+
+            if (isAdd)
+            {
+                if (idx < 0)
+                    current.Add(new MockReaction(evt.EmojiCode, 1, byMe));
+                else
+                    current[idx] = current[idx] with
+                    {
+                        Count = current[idx].Count + 1,
+                        ReactedByMe = current[idx].ReactedByMe || byMe,
+                    };
+            }
+            else
+            {
+                if (idx >= 0)
+                {
+                    var newCount = current[idx].Count - 1;
+                    if (newCount <= 0)
+                        current.RemoveAt(idx);
+                    else
+                        current[idx] = current[idx] with
+                        {
+                            Count = newCount,
+                            ReactedByMe = current[idx].ReactedByMe && !byMe,
+                        };
+                }
+            }
+
+            return m with { Reactions = current.Count > 0 ? current : null };
+        }).ToList();
+        obs.Set(next);
+    }
+
     private void EnsureHubSubscribed()
     {
         if (_hubSubscribed) return;
@@ -218,6 +326,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         _hubSubs.Add(_hub.OnMessageCreated(OnMessageCreated));
         _hubSubs.Add(_hub.OnMessageEdited(OnMessageEdited));
         _hubSubs.Add(_hub.OnMessageDeleted(OnMessageDeleted));
+        _hubSubs.Add(_hub.OnReactionChanged(OnReactionChanged));
     }
 
     private void OnMessageCreated(MessageCreatedEvent evt)
@@ -359,6 +468,12 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
             ParentMessageId: m.ParentMessageId,
             ParentPreview: m.ParentPreview is { } p
                 ? new MockParentPreview(p.Id, p.AuthorId, p.IsDeleted ? string.Empty : p.Content, p.IsDeleted)
+                : null,
+            Reactions: m.Reactions is { Count: > 0 }
+                ? m.Reactions.Select(r => new MockReaction(r.EmojiCode, r.Count, r.ReactedByMe)).ToList()
+                : null,
+            Attachments: m.Attachments is { Count: > 0 }
+                ? m.Attachments.Select(a => new MockAttachment(a.Id, a.FileName, a.ContentType, a.SizeBytes, a.CdnUrl)).ToList()
                 : null);
 
     public void Dispose()
@@ -390,10 +505,12 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         DateTime CreatedAt,
         DateTime? EditedAt,
         bool IsDeleted,
-        List<ReactionWireDto> Reactions);
+        List<ReactionWireDto> Reactions,
+        List<AttachmentWireDto>? Attachments);
 
     private sealed record ParentPreviewWireDto(Guid Id, Guid AuthorId, string Content, bool IsDeleted);
     private sealed record ReactionWireDto(string EmojiCode, int Count, bool ReactedByMe);
+    private sealed record AttachmentWireDto(Guid Id, string FileName, string ContentType, long SizeBytes, string CdnUrl);
 
     private sealed record SendMessageRequestDto(string Content, string IdempotencyKey, Guid? ParentMessageId);
     private sealed record SendMessageResponseDto(
@@ -405,4 +522,7 @@ public sealed class HttpMessageStore : IMessageStore, IDisposable
         Guid? ParentMessageId,
         bool WasIdempotent,
         DateTime CreatedAt);
+
+    private sealed record AddReactionRequestDto(string EmojiCode);
+    private sealed record AttachmentResponseDto(Guid AttachmentId, string FileName, string ContentType, long SizeBytes, string CdnUrl);
 }
