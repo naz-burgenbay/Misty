@@ -1,5 +1,5 @@
 @code {
-    [Parameter, EditorRequired] public MockChannel Channel { get; set; } = default!;
+    [Parameter, EditorRequired] public ChannelSummaryDto Channel { get; set; } = default!;
     [Parameter] public bool Selected { get; set; }
     [Parameter] public string Href { get; set; } = "#";
 }
@@ -19,9 +19,5 @@
     @if (Channel.IsAiAssistantEnabled)
     {
         <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
-    }
-    @if (Channel.UnreadCount > 0)
-    {
-        <span class="unread">@Channel.UnreadCount</span>
     }
 </a>

@@ -1,19 +1,44 @@
+@using Microsoft.AspNetCore.Components.Forms
+@inject IUserDirectory Users
+
 @code {
+    public sealed record MessageComposerSubmit(string Content, IBrowserFile? Attachment);
+
     [Parameter] public string Placeholder { get; set; } = "Write a message…";
     [Parameter] public MockMessage? ReplyingTo { get; set; }
     [Parameter] public EventCallback OnClearReply { get; set; }
-    [Parameter] public EventCallback<string> OnSend { get; set; }
+    [Parameter] public EventCallback<MessageComposerSubmit> OnSend { get; set; }
     [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool AttachmentsEnabled { get; set; } = true;
 
     private string _draft = string.Empty;
+    private IBrowserFile? _pendingAttachment;
+
+    private string ReplyAuthorName
+    {
+        get
+        {
+            if (ReplyingTo is null) return string.Empty;
+            _ = Users.EnsureAsync(ReplyingTo.AuthorId);
+            return Users.Get(ReplyingTo.AuthorId).DisplayName;
+        }
+    }
+
+    private string ReplyPreviewText =>
+        ReplyingTo is null ? string.Empty
+        : ReplyingTo.IsTombstone ? "[message deleted]"
+        : ReplyingTo.Content;
+
+    private bool CanSubmit => !Disabled && (!string.IsNullOrWhiteSpace(_draft) || _pendingAttachment is not null);
 
     private async Task Send()
     {
-        if (Disabled) return;
+        if (!CanSubmit) return;
         var text = _draft.Trim();
-        if (text.Length == 0) return;
-        await OnSend.InvokeAsync(text);
+        var attachment = _pendingAttachment;
         _draft = string.Empty;
+        _pendingAttachment = null;
+        await OnSend.InvokeAsync(new MessageComposerSubmit(text, attachment));
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
@@ -23,6 +48,20 @@
             await Send();
         }
     }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _pendingAttachment = e.File;
+    }
+
+    private void ClearAttachment() => _pendingAttachment = null;
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes / (1024.0 * 1024.0):0.#} MB",
+    };
 }
 
 <div class="composer @(Disabled ? "disabled" : "")">
@@ -30,14 +69,30 @@
     {
         <div class="reply-chip">
             <span class="reply-icon"><Blazicon Svg="Lucide.CornerUpLeft" /></span>
-            <span class="reply-author">Replying to @MockDataStore.GetUser(ReplyingTo.AuthorId).DisplayName</span>
-            <span class="reply-preview">@(ReplyingTo.IsTombstone ? "message deleted" : ReplyingTo.Content)</span>
+            <span class="reply-author">Replying to @ReplyAuthorName</span>
+            <span class="reply-preview">@ReplyPreviewText</span>
             <IconButton Title="Cancel reply" OnClick="OnClearReply"><Blazicon Svg="Lucide.X" /></IconButton>
         </div>
     }
 
+    @if (_pendingAttachment is not null)
+    {
+        <div class="attachment-chip">
+            <Blazicon Svg="Lucide.Paperclip" />
+            <span class="name">@_pendingAttachment.Name</span>
+            <span class="size">@FormatSize(_pendingAttachment.Size)</span>
+            <IconButton Title="Remove attachment" OnClick="ClearAttachment"><Blazicon Svg="Lucide.X" /></IconButton>
+        </div>
+    }
+
     <div class="row">
-        <IconButton Title="Attach"><Blazicon Svg="Lucide.Paperclip" /></IconButton>
+        @if (AttachmentsEnabled)
+        {
+            <label class="attach-btn" title="Attach">
+                <Blazicon Svg="Lucide.Paperclip" />
+                <InputFile OnChange="OnFileSelected" />
+            </label>
+        }
         <textarea class="input"
                   rows="1"
                   placeholder="@Placeholder"
@@ -46,9 +101,18 @@
                   @bind:event="oninput"
                   @onkeydown="OnKeyDown"></textarea>
         <IconButton Title="Emoji"><Blazicon Svg="Lucide.Smile" /></IconButton>
-        <Button Variant="Button.ButtonVariant.Primary" OnClick="Send" Disabled="@(Disabled || string.IsNullOrWhiteSpace(_draft))">
+        <Button Variant="Button.ButtonVariant.Primary" OnClick="Send" Disabled="@(!CanSubmit)">
             <Blazicon Svg="Lucide.Send" />
             <span>Send</span>
         </Button>
     </div>
 </div>
+
+<style>
+.attach-btn { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px; border-radius: var(--radius-sm); color: var(--color-text-muted); }
+.attach-btn:hover { background: var(--color-surface-raised); color: var(--color-text-primary); }
+.attach-btn ::deep input[type=file] { display: none; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; margin-bottom: 6px; background: var(--color-surface-raised); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 12px; color: var(--color-text-secondary); width: max-content; max-width: 100%; }
+.attachment-chip .name { font-weight: var(--fw-medium); color: var(--color-text-primary); }
+.attachment-chip .size { color: var(--color-text-muted); }
+</style>

@@ -16,6 +16,15 @@ public sealed class ChannelsController : ControllerBase
 
     public ChannelsController(IMediator mediator) => _mediator = mediator;
 
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyList<ChannelSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyChannels(CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new GetMyChannelsQuery(userId), ct);
+        return Ok(result);
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(CreateChannelResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
@@ -89,6 +98,15 @@ public sealed class ChannelsController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         await _mediator.Send(new LeaveChannelCommand(userId, id), ct);
         return NoContent();
+    }
+
+    [HttpGet("{id:guid}/permissions/me")]
+    [ProducesResponseType(typeof(GetMyChannelPermissionsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyEffectivePermissions(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new GetMyChannelPermissionsQuery(userId, id), ct);
+        return Ok(result);
     }
 }
 

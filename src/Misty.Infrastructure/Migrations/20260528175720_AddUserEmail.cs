@@ -19,6 +19,10 @@ namespace Misty.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: "");
 
+            // Backfill existing rows with a deterministic, unique placeholder so the unique index below can be created. Real users will overwrite this on first profile edit.
+            migrationBuilder.Sql(
+                "UPDATE [users].[User] SET [Email] = CONCAT(N'legacy+', LOWER([Username]), N'@local.invalid') WHERE [Email] = N'';");
+
             migrationBuilder.CreateIndex(
                 name: "UX_User_Email",
                 schema: "users",

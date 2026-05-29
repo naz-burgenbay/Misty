@@ -31,6 +31,15 @@ public sealed class PermissionService : IPermissionService
         return ((ChannelPermission)effective & permission) == permission;
     }
 
+    public async Task<ChannelPermission> GetEffectivePermissionsAsync(
+        Guid userId,
+        Guid channelId,
+        CancellationToken ct = default)
+    {
+        var effective = await ComputeEffectivePermissionsAsync(userId, channelId, ct);
+        return effective == DeniedSentinel ? ChannelPermission.None : (ChannelPermission)effective;
+    }
+
 // Computes effective channel permissions from SQL. Muted users lose write permissions; banned users and non-members receive DeniedSentinel.
     internal async Task<long> ComputeEffectivePermissionsAsync(
         Guid userId,

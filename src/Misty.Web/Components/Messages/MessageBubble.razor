@@ -6,15 +6,50 @@
     private string Cls =>
         (IsAi ? "ai" : IsMine ? "mine" : "received") +
         (Message.IsTombstone ? " tombstone" : string.Empty);
+
+    private static bool IsImage(MockAttachment a) =>
+        a.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes / (1024.0 * 1024.0):0.#} MB",
+    };
 }
 
 <div class="bubble @Cls">
     @if (Message.IsTombstone)
     {
-        <span class="tombstone-text">message deleted</span>
+        <span class="tombstone-text">[message deleted]</span>
     }
     else
     {
-        <span class="content">@Message.Content</span>
+        @if (!string.IsNullOrWhiteSpace(Message.Content))
+        {
+            <span class="content">@Message.Content</span>
+        }
+        @if (Message.Attachments is { Count: > 0 })
+        {
+            <div class="attachments">
+                @foreach (var a in Message.Attachments)
+                {
+                    if (IsImage(a))
+                    {
+                        <a class="att-image" href="@a.CdnUrl" target="_blank" rel="noopener">
+                            <img src="@a.CdnUrl" alt="@a.FileName" />
+                        </a>
+                    }
+                    else
+                    {
+                        <a class="att-file" href="@a.CdnUrl" target="_blank" rel="noopener" download>
+                            <Blazicon Svg="Lucide.Paperclip" />
+                            <span class="att-name">@a.FileName</span>
+                            <span class="att-size">@FormatSize(a.SizeBytes)</span>
+                        </a>
+                    }
+                }
+            </div>
+        }
     }
 </div>

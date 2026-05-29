@@ -1,41 +1,61 @@
+@implements IDisposable
+@inject IUserDirectory Users
+@inject IPresenceService Presence
+
 @code {
-    [Parameter, EditorRequired] public MockDirectConversation Conversation { get; set; } = default!;
+    [Parameter, EditorRequired] public DirectConversationDto Conversation { get; set; } = default!;
     [Parameter] public bool Selected { get; set; }
     [Parameter] public string Href { get; set; } = "#";
 
-    private MockUser Other => MockDataStore.GetUser(Conversation.OtherUserId);
+    private UserSummary _other = default!;
+    private bool _subscribed;
+    private PresenceState _presence = PresenceState.Unknown;
+    private IDisposable? _presenceSub;
+    private Guid _watched;
+
+    protected override void OnParametersSet()
+    {
+        _other = Users.Get(Conversation.OtherUserId);
+        _ = Users.EnsureAsync(Conversation.OtherUserId);
+        if (!_subscribed)
+        {
+            Users.Updated += OnUserUpdated;
+            _subscribed = true;
+        }
+
+        if (_watched != Conversation.OtherUserId)
+        {
+            _watched = Conversation.OtherUserId;
+            _presenceSub?.Dispose();
+            _presenceSub = Presence.Watch(_watched).Subscribe(s =>
+            {
+                _presence = s;
+                InvokeAsync(StateHasChanged);
+            });
+        }
+    }
+
+    private void OnUserUpdated(Guid userId)
+    {
+        if (userId != Conversation.OtherUserId) return;
+        _other = Users.Get(userId);
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (_subscribed) Users.Updated -= OnUserUpdated;
+        _presenceSub?.Dispose();
+    }
 }
 
 <a class="row @(Selected ? "selected" : "")" href="@Href">
-    <Avatar Name="@Other.DisplayName"
+    <Avatar Name="@_other.DisplayName"
+            Presence="_presence"
             Size="Avatar.AvatarSize.Medium" />
     <div class="text">
         <div class="line">
-            <span class="name">@Other.DisplayName</span>
-            <span class="time">@FormatTime(Conversation.LastAt)</span>
-        </div>
-        <div class="preview">
-            @if (Conversation.IsBlocked)
-            {
-                <span class="blocked">Blocked</span>
-            }
-            else
-            {
-                @Conversation.LastPreview
-            }
+            <span class="name">@_other.DisplayName</span>
         </div>
     </div>
-    @if (Conversation.UnreadCount > 0)
-    {
-        <span class="unread">@Conversation.UnreadCount</span>
-    }
 </a>
-
-@code {
-    private static string FormatTime(DateTime at)
-    {
-        if (at.Date == DateTime.Today) return at.ToString("HH:mm");
-        if (at.Date == DateTime.Today.AddDays(-1)) return "Yesterday";
-        return at.ToString("MMM d");
-    }
-}

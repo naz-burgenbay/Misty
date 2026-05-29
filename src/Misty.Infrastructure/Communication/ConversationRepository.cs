@@ -11,6 +11,9 @@ public sealed class ConversationRepository : IConversationRepository
 
     public ConversationRepository(ApplicationDbContext db) => _db = db;
 
+    public Task<Conversation?> GetByIdAsync(Guid id, CancellationToken ct = default)
+        => _db.Conversations.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+
     public Task<Conversation?> GetByUsersAsync(Guid userAId, Guid userBId, CancellationToken ct = default)
         => _db.Conversations.FirstOrDefaultAsync(
             c => c.UserAId == userAId && c.UserBId == userBId, ct);

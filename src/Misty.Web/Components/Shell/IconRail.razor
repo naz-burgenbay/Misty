@@ -1,4 +1,5 @@
 @inject NavigationManager Nav
+@inject IAuthService Auth
 @implements IDisposable
 
 <nav class="rail">
@@ -27,13 +28,26 @@
         </a>
     </div>
 
-    <Avatar Name="@MockDataStore.Me.DisplayName" Size="Avatar.AvatarSize.Medium" />
+    <Avatar Name="@(Auth.CurrentUser?.DisplayName ?? "Guest")"
+            ImageUrl="@Auth.CurrentUser?.AvatarUrl"
+            Size="Avatar.AvatarSize.Medium" />
 </nav>
 
 @code {
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocation;
-    public void Dispose() => Nav.LocationChanged -= OnLocation;
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocation;
+        Auth.AuthStateChanged += OnAuthChanged;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocation;
+        Auth.AuthStateChanged -= OnAuthChanged;
+    }
+
     private void OnLocation(object? _, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs __) => StateHasChanged();
+    private void OnAuthChanged() => InvokeAsync(StateHasChanged);
 
     private bool IsActive(string prefix, bool exact = false)
     {

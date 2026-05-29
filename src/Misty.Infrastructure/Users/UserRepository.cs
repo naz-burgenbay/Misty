@@ -20,6 +20,19 @@ public class UserRepository : IUserRepository
         => _db.Users
             .FirstOrDefaultAsync(u => u.Username == username && !u.IsDeleted, ct);
 
+    public async Task<IReadOnlyList<User>> SearchByUsernameAsync(string query, Guid? excludeUserId, int take, CancellationToken ct = default)
+    {
+        var q = _db.Users.Where(u => !u.IsDeleted);
+        if (excludeUserId is { } self)
+            q = q.Where(u => u.Id != self);
+        if (!string.IsNullOrWhiteSpace(query))
+            q = q.Where(u => EF.Functions.Like(u.Username, $"%{query}%") || EF.Functions.Like(u.DisplayName, $"%{query}%"));
+        return await q
+            .OrderBy(u => u.Username)
+            .Take(take)
+            .ToListAsync(ct);
+    }
+
     public Task<bool> UsernameExistsAsync(string username, CancellationToken ct = default)
         => _db.Users.AnyAsync(u => u.Username == username, ct);
 
@@ -45,7 +58,7 @@ public class UserRepository : IUserRepository
         }
     }
 
-    public async Task UpdateAvatarUrlAsync(User user, string avatarUrl, CancellationToken ct = default)
+    public async Task UpdateAvatarUrlAsync(User user, string? avatarUrl, CancellationToken ct = default)
     {
         user.UpdateAvatarUrl(avatarUrl);
         await _db.SaveChangesAsync(ct);

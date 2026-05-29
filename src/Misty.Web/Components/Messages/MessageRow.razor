@@ -1,49 +1,125 @@
+@inject IUserDirectory Users
+@inject IAuthService Auth
+@inject IPresenceService Presence
+@implements IDisposable
+
 @code {
     [Parameter, EditorRequired] public MockMessage Message { get; set; } = default!;
+    [Parameter] public EventCallback<MockMessage> OnReply { get; set; }
+    [Parameter] public bool ReactionsEnabled { get; set; }
+    [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnAddReaction { get; set; }
+    [Parameter] public EventCallback<(Guid MessageId, string EmojiCode)> OnRemoveReaction { get; set; }
+    [Parameter] public bool CanModerate { get; set; }
+    [Parameter] public EventCallback<Guid> OnModerateUser { get; set; }
 
-    private MockUser Author => MockDataStore.GetUser(Message.AuthorId);
-    private bool IsMine => Message.AuthorId == MockDataStore.MeId;
-    private bool IsAi => Author.IsAi;
+    private UserSummary _author = default!;
+    private Guid _watchedAuthor;
+    private PresenceState _presence = PresenceState.Unknown;
+    private IDisposable? _presenceSub;
 
-    private MockMessage? Parent => Message.ParentMessageId is { } pid
-        ? MockDataStore.MessagesByConversation
-            .SelectMany(kv => kv.Value)
-            .FirstOrDefault(m => m.Id == pid)
-        : null;
+    private bool IsMine => Message.AuthorId == Auth.CurrentUser?.Id;
+    private bool IsAi => _author.IsAi;
+    private bool IsTombstone => Message.IsTombstone;
+    private IReadOnlyList<MockReaction> ReactionList =>
+        Message.Reactions ?? (IReadOnlyList<MockReaction>)Array.Empty<MockReaction>();
+
+    protected override void OnInitialized() => Users.Updated += OnUserUpdated;
+
+    protected override void OnParametersSet()
+    {
+        _watchedAuthor = Message.AuthorId;
+        _author = Users.Get(_watchedAuthor);
+        _ = Users.EnsureAsync(_watchedAuthor);
+
+        _presenceSub?.Dispose();
+        var obs = Presence.Watch(_watchedAuthor);
+        _presence = obs.Value;
+        _presenceSub = obs.Subscribe(s =>
+        {
+            _presence = s;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void OnUserUpdated(Guid id)
+    {
+        if (id != _watchedAuthor) return;
+        _author = Users.Get(_watchedAuthor);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private Task ReplyClicked()
+        => OnReply.HasDelegate ? OnReply.InvokeAsync(Message) : Task.CompletedTask;
+
+    private Task AddReactionAsync(string emoji)
+        => OnAddReaction.HasDelegate ? OnAddReaction.InvokeAsync((Message.Id, emoji)) : Task.CompletedTask;
+
+    private Task RemoveReactionAsync(string emoji)
+        => OnRemoveReaction.HasDelegate ? OnRemoveReaction.InvokeAsync((Message.Id, emoji)) : Task.CompletedTask;
+
+    private Task ModerateClicked()
+        => OnModerateUser.HasDelegate ? OnModerateUser.InvokeAsync(Message.AuthorId) : Task.CompletedTask;
+
+    public void Dispose()
+    {
+        Users.Updated -= OnUserUpdated;
+        _presenceSub?.Dispose();
+    }
 }
 
-<div class="row @(IsMine ? "mine" : "")">
+<div class="row @(IsMine ? "mine" : "") @(IsTombstone ? "tombstone" : "")">
     <div class="avatar-col">
-        <Avatar Name="@Author.DisplayName" IsAi="@IsAi" Size="Avatar.AvatarSize.Medium" />
+        <Avatar Name="@_author.DisplayName" IsAi="@IsAi" Presence="_presence" Size="Avatar.AvatarSize.Medium" />
     </div>
     <div class="body">
         <div class="header">
-            <span class="name @(IsAi ? "ai" : "")">@Author.DisplayName</span>
+            <span class="name @(IsAi ? "ai" : "")">@_author.DisplayName</span>
             @if (IsAi)
             {
                 <Badge Variant="Badge.BadgeVariant.AI" Label="AI" />
             }
             <span class="time">@FormatTime(Message.CreatedAt)</span>
-            @if (Message.IsEdited)
+            @if (Message.IsEdited && !IsTombstone)
             {
                 <span class="edited">(edited)</span>
             }
         </div>
 
-        @if (Parent is not null)
+        @if (Message.ParentPreview is { } parent && !IsTombstone)
         {
-            <ReplyPreview Parent="Parent" />
+            <ReplyPreview Parent="parent" />
         }
 
         <MessageBubble Message="Message" IsMine="@IsMine" IsAi="@IsAi" />
 
-        @if (Message.Reactions is { Count: > 0 })
+        @if (!IsTombstone && ReactionsEnabled)
+        {
+            <ReactionsRow Reactions="ReactionList"
+                          OnAdd="AddReactionAsync"
+                          OnRemove="RemoveReactionAsync" />
+        }
+        else if (!IsTombstone && Message.Reactions is { Count: > 0 })
         {
             <ReactionsRow Reactions="Message.Reactions" />
         }
     </div>
+
+    @if (!IsTombstone)
+    {
+        <div class="actions">
+            <IconButton Title="Reply" OnClick="ReplyClicked">
+                <Blazicon Svg="Lucide.CornerUpLeft" />
+            </IconButton>
+            @if (CanModerate && !IsMine)
+            {
+                <IconButton Title="Moderate user" OnClick="ModerateClicked">
+                    <Blazicon Svg="Lucide.ShieldAlert" />
+                </IconButton>
+            }
+        </div>
+    }
 </div>
 
 @code {
-    private static string FormatTime(DateTime at) => at.ToString("HH:mm");
+    private static string FormatTime(DateTime at) => at.ToLocalTime().ToString("HH:mm");
 }

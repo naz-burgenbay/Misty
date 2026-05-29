@@ -15,6 +15,15 @@ public sealed class UsersController : ControllerBase
 
     public UsersController(IMediator mediator) => _mediator = mediator;
 
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(SearchUsersResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Search([FromQuery] string? q, [FromQuery] int take = 10, CancellationToken ct = default)
+    {
+        var meId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new SearchUsersQuery(q ?? string.Empty, meId, take), ct);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(GetUserByIdResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -61,6 +70,15 @@ public sealed class UsersController : ControllerBase
         var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
         await using var stream = file.OpenReadStream();
         var result = await _mediator.Send(new UploadAvatarCommand(userId, stream, file.ContentType), ct);
+        return Ok(result);
+    }
+
+    [HttpDelete("me/avatar")]
+    [ProducesResponseType(typeof(RemoveAvatarResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RemoveAvatar(CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new RemoveAvatarCommand(userId), ct);
         return Ok(result);
     }
 }

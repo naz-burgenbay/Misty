@@ -65,3 +65,37 @@
     height: 14px;
     stroke-width: 1.75;
 }
+
+.add-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.emoji-popover {
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 0;
+    display: flex;
+    gap: 2px;
+    padding: 6px;
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    z-index: 10;
+}
+
+.emoji-option {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 4px 6px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.emoji-option:hover {
+    background: var(--color-surface);
+}
