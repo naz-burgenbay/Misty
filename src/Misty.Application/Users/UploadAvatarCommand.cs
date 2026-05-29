@@ -6,7 +6,7 @@ namespace Misty.Application.Users;
 public record UploadAvatarCommand(Guid UserId, Stream Content, string ContentType)
     : IRequest<UploadAvatarResponse>;
 
-public record UploadAvatarResponse(string AvatarUrl);
+public record UploadAvatarResponse(string AvatarUrl, string Version);
 
 public sealed class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, UploadAvatarResponse>
 {
@@ -27,6 +27,6 @@ public sealed class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCom
         var url = await _avatar.UploadAsync(request.UserId, request.Content, request.ContentType, ct);
         await _users.UpdateAvatarUrlAsync(user, url, ct);
 
-        return new UploadAvatarResponse(url);
+        return new UploadAvatarResponse(url, Convert.ToBase64String(user.Version));
     }
 }

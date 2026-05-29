@@ -9,7 +9,9 @@ public sealed record MockUser(
     string DisplayName,
     string Username,
     bool IsAi = false,
-    string? Bio = null);
+    string? Bio = null,
+    string? AvatarUrl = null,
+    string Version = "");
 
 public sealed record MockReaction(string Emoji, int Count, bool ReactedByMe);
 

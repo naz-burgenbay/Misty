@@ -99,6 +99,15 @@ public sealed class ChannelsController : ControllerBase
         await _mediator.Send(new LeaveChannelCommand(userId, id), ct);
         return NoContent();
     }
+
+    [HttpGet("{id:guid}/permissions/me")]
+    [ProducesResponseType(typeof(GetMyChannelPermissionsResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyEffectivePermissions(Guid id, CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new GetMyChannelPermissionsQuery(userId, id), ct);
+        return Ok(result);
+    }
 }
 
 public record CreateChannelRequest(

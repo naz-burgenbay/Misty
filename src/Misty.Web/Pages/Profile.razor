@@ -1,20 +1,125 @@
 @page "/profile"
 @inject IAuthService Auth
+@inject IUserProfileService ProfileSvc
+@inject IToastService Toasts
+@inject IJSRuntime Js
+@implements IDisposable
 
 <PageTitle>Profile | Misty</PageTitle>
 
 @code {
+    private const long MaxAvatarBytes = 5 * 1024 * 1024;
+    private const string AvatarInputId = "profile-avatar-input";
+
     private MockUser? Me => Auth.CurrentUser;
     private string _displayName = string.Empty;
     private string _username = string.Empty;
     private string _bio = string.Empty;
+    private bool _saving;
+    private bool _uploading;
+    private bool _removing;
 
     protected override void OnInitialized()
+    {
+        ResetFromMe();
+        Auth.AuthStateChanged += OnAuthChanged;
+    }
+
+    private void OnAuthChanged()
+    {
+        ResetFromMe();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetFromMe()
     {
         _displayName = Me?.DisplayName ?? string.Empty;
         _username = Me?.Username ?? string.Empty;
         _bio = Me?.Bio ?? string.Empty;
     }
+
+    private async Task SaveAsync()
+    {
+        if (Me is null || _saving) return;
+        if (string.IsNullOrWhiteSpace(_displayName))
+        {
+            Toasts.Show("Display name can't be empty.", ToastKind.Warning);
+            return;
+        }
+        _saving = true;
+        try
+        {
+            await ProfileSvc.UpdateProfileAsync(_displayName.Trim(), string.IsNullOrWhiteSpace(_bio) ? null : _bio.Trim());
+            Toasts.Show("Profile saved.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Save failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task PickAvatarAsync()
+    {
+        if (_uploading || _removing) return;
+        await Js.InvokeVoidAsync("eval", $"document.getElementById('{AvatarInputId}').click()");
+    }
+
+    private async Task OnAvatarPickedAsync(InputFileChangeEventArgs e)
+    {
+        if (Me is null) return;
+        var file = e.File;
+        if (file.Size > MaxAvatarBytes)
+        {
+            Toasts.Show("Image must be 5 MB or smaller.", ToastKind.Warning);
+            return;
+        }
+        string[] allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        if (!allowed.Contains(file.ContentType, StringComparer.OrdinalIgnoreCase))
+        {
+            Toasts.Show("Unsupported image type. Allowed: jpeg, png, webp, gif.", ToastKind.Warning);
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            await ProfileSvc.UploadAvatarAsync(file);
+            Toasts.Show("Picture updated.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Upload failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private async Task RemoveAvatarAsync()
+    {
+        if (Me is null || _removing || string.IsNullOrEmpty(Me.AvatarUrl)) return;
+        _removing = true;
+        try
+        {
+            await ProfileSvc.RemoveAvatarAsync();
+            Toasts.Show("Picture removed.", ToastKind.Success);
+        }
+        catch (Exception ex)
+        {
+            Toasts.Show($"Remove failed: {ex.Message}", ToastKind.Error);
+        }
+        finally
+        {
+            _removing = false;
+        }
+    }
+
+    public void Dispose() => Auth.AuthStateChanged -= OnAuthChanged;
 }
 
 <div class="page">
@@ -26,10 +131,15 @@
 
         <section class="card">
             <div class="avatar-row">
-                <Avatar Name="@_displayName" Size="Avatar.AvatarSize.Large" />
+                <Avatar Name="@_displayName" Size="Avatar.AvatarSize.Large" ImageUrl="@Me?.AvatarUrl" />
                 <div class="avatar-actions">
-                    <Button Variant="Button.ButtonVariant.Ghost">Change picture</Button>
-                    <Button Variant="Button.ButtonVariant.Ghost">Remove</Button>
+                    <Button Variant="Button.ButtonVariant.Ghost" OnClick="PickAvatarAsync" Disabled="@(_uploading || _removing || Me is null)">
+                        @(_uploading ? "Uploading…" : "Change picture")
+                    </Button>
+                    <Button Variant="Button.ButtonVariant.Ghost" OnClick="RemoveAvatarAsync" Disabled="@(_removing || _uploading || Me is null || string.IsNullOrEmpty(Me?.AvatarUrl))">
+                        @(_removing ? "Removing…" : "Remove")
+                    </Button>
+                    <InputFile id="@AvatarInputId" OnChange="OnAvatarPickedAsync" accept="image/*" style="display:none" />
                 </div>
             </div>
 
@@ -47,8 +157,10 @@
             </div>
 
             <div class="actions">
-                <Button Variant="Button.ButtonVariant.Ghost">Cancel</Button>
-                <Button Variant="Button.ButtonVariant.Primary">Save changes</Button>
+                <Button Variant="Button.ButtonVariant.Ghost" OnClick="ResetFromMe" Disabled="@_saving">Cancel</Button>
+                <Button Variant="Button.ButtonVariant.Primary" OnClick="SaveAsync" Disabled="@(_saving || Me is null)">
+                    @(_saving ? "Saving…" : "Save changes")
+                </Button>
             </div>
         </section>
 

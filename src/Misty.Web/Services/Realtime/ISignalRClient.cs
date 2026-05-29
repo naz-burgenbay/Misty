@@ -40,28 +40,3 @@ public interface ISignalRClient
     IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> handler);
     IDisposable OnPresenceChanged(Action<PresenceChangedEvent> handler);
 }
-
-public sealed class StubSignalRClient : ISignalRClient
-{
-    public Observable<HubConnectionState> State { get; } = new(HubConnectionState.Connected);
-
-    public Task StartAsync(CancellationToken ct = default) { State.Set(HubConnectionState.Connected); return Task.CompletedTask; }
-    public Task StopAsync(CancellationToken ct = default)  { State.Set(HubConnectionState.Disconnected); return Task.CompletedTask; }
-
-    public event Action? Reconnected { add { } remove { } }
-
-    public IDisposable OnMessageCreated(Action<MessageCreatedEvent> handler)            => NoopSub.Instance;
-    public IDisposable OnMessageEdited(Action<MessageEditedEvent> handler)              => NoopSub.Instance;
-    public IDisposable OnMessageDeleted(Action<MessageDeletedEvent> handler)            => NoopSub.Instance;
-    public IDisposable OnReactionChanged(Action<ReactionChangedEvent> handler)          => NoopSub.Instance;
-    public IDisposable OnMembershipChanged(Action<PermissionInvalidationEvent> handler) => NoopSub.Instance;
-    public IDisposable OnRoleChanged(Action<PermissionInvalidationEvent> handler)       => NoopSub.Instance;
-    public IDisposable OnModerationActionApplied(Action<PermissionInvalidationEvent> handler) => NoopSub.Instance;
-    public IDisposable OnPresenceChanged(Action<PresenceChangedEvent> handler)                => NoopSub.Instance;
-
-    private sealed class NoopSub : IDisposable
-    {
-        public static readonly NoopSub Instance = new();
-        public void Dispose() { }
-    }
-}

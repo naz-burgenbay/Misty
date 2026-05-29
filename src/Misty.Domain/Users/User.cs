@@ -32,7 +32,7 @@ public class User
         Bio = bio;
     }
 
-    public void UpdateAvatarUrl(string avatarUrl) => AvatarUrl = avatarUrl;
+    public void UpdateAvatarUrl(string? avatarUrl) => AvatarUrl = avatarUrl;
 
     public void SoftDelete()
     {

@@ -41,11 +41,12 @@ builder.Services.AddScoped<ISignalRClient>(sp => new HubSignalRClient(
     new Uri(new Uri(apiBaseUrl), "hubs/realtime").ToString(),
     sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<HubSignalRClient>>()));
 builder.Services.AddScoped<IUserDirectory, HttpUserDirectory>();
+builder.Services.AddScoped<IUserProfileService, HttpUserProfileService>();
 builder.Services.AddScoped<IChannelService, HttpChannelService>();
 builder.Services.AddScoped<IDirectMessageService, HttpDirectMessageService>();
 builder.Services.AddScoped<IMessageStore, HttpMessageStore>();
 builder.Services.AddScoped<IPresenceService, HttpPresenceService>();
-builder.Services.AddScoped<IPermissionsCache, StubPermissionsCache>();
+builder.Services.AddScoped<IPermissionsCache, HttpPermissionsCache>();
 builder.Services.AddScoped<IModerationService, HttpModerationService>();
 builder.Services.AddScoped<IToastService, StubToastService>();
 builder.Services.AddScoped<IModalService, StubModalService>();

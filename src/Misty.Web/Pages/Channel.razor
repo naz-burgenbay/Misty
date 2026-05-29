@@ -65,7 +65,7 @@
 
     // Until server-side permission events land in this client, we conservatively allow send on any channel we know we're a member of.
     private bool CanSend       => _channel is not null;
-    private bool CanModerate   => _myPermissions.HasFlag(ChannelPermissionFlags.ModerateMembers);
+    private bool CanModerate   => _myPermissions.CanModerate();
     private bool CanManageChannel => _myPermissions.HasFlag(ChannelPermissionFlags.ManageChannel);
 
     private async Task SendAsync(MessageComposer.MessageComposerSubmit submit)

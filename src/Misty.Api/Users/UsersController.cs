@@ -63,6 +63,15 @@ public sealed class UsersController : ControllerBase
         var result = await _mediator.Send(new UploadAvatarCommand(userId, stream, file.ContentType), ct);
         return Ok(result);
     }
+
+    [HttpDelete("me/avatar")]
+    [ProducesResponseType(typeof(RemoveAvatarResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> RemoveAvatar(CancellationToken ct)
+    {
+        var userId = Guid.Parse(User.FindFirst(JwtRegisteredClaimNames.Sub)!.Value);
+        var result = await _mediator.Send(new RemoveAvatarCommand(userId), ct);
+        return Ok(result);
+    }
 }
 
 public record UpdateUserRequest(string DisplayName, string? Bio, string Version);

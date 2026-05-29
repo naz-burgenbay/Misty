@@ -14,11 +14,19 @@ public sealed class AzureBlobAvatarService : IAvatarService
     public async Task<string> UploadAsync(Guid userId, Stream content, string contentType, CancellationToken ct = default)
     {
         var container = _client.GetBlobContainerClient(ContainerName);
-        await container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: ct);
+        await container.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: ct);
 
         var blob = container.GetBlobClient(userId.ToString());
-        await blob.UploadAsync(content, new BlobHttpHeaders { ContentType = contentType }, cancellationToken: ct);
+        var options = new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = contentType } };
+        await blob.UploadAsync(content, options, ct);
 
         return blob.Uri.ToString();
+    }
+
+    public async Task DeleteAsync(Guid userId, CancellationToken ct = default)
+    {
+        var container = _client.GetBlobContainerClient(ContainerName);
+        var blob = container.GetBlobClient(userId.ToString());
+        await blob.DeleteIfExistsAsync(cancellationToken: ct);
     }
 }

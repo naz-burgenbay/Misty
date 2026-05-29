@@ -27,42 +27,6 @@ public interface IMessageStore
         string contentType, long sizeBytes, Stream content, CancellationToken ct = default);
 }
 
-public sealed class StubMessageStore : IMessageStore
-{
-    private readonly Dictionary<Guid, Observable<IReadOnlyList<MockMessage>>> _byConversation = new();
-
-    public Observable<IReadOnlyList<MockMessage>> GetConversation(Guid conversationId)
-    {
-        if (!_byConversation.TryGetValue(conversationId, out var obs))
-        {
-            obs = new Observable<IReadOnlyList<MockMessage>>(Array.Empty<MockMessage>());
-            _byConversation[conversationId] = obs;
-        }
-        return obs;
-    }
-
-    public Task EnsureLoadedAsync(Guid channelId, CancellationToken ct = default) => Task.CompletedTask;
-    public Task EnsureConversationLoadedAsync(Guid conversationId, CancellationToken ct = default) => Task.CompletedTask;
-    public Task LoadOlderAsync(Guid channelId, CancellationToken ct = default) => Task.CompletedTask;
-    public bool HasMoreOlder(Guid channelId) => false;
-
-    public Task<Guid?> SendAsync(Guid conversationId, string content, Guid? parentMessageId = null,
-        CancellationToken ct = default)
-    {
-        var obs = GetConversation(conversationId);
-        var optimistic = new MockMessage(Guid.NewGuid(), Guid.Empty, content,
-            DateTime.UtcNow, ParentMessageId: parentMessageId);
-        obs.Set(obs.Value.Append(optimistic).ToList());
-        return Task.FromResult<Guid?>(optimistic.Id);
-    }
-
-    public Task AddReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default) => Task.CompletedTask;
-    public Task RemoveReactionAsync(Guid channelId, Guid messageId, string emojiCode, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<MockAttachment> UploadAttachmentAsync(Guid channelId, Guid messageId, string fileName,
-        string contentType, long sizeBytes, Stream content, CancellationToken ct = default)
-        => Task.FromResult(new MockAttachment(Guid.NewGuid(), fileName, contentType, sizeBytes, "#"));
-}
-
 public sealed class HttpMessageStore : IMessageStore, IDisposable
 {
     private const int PageSize = 50;

@@ -147,7 +147,13 @@ public sealed class HttpAuthService : IAuthService, IDisposable
 
         _currentUser = full is null
             ? new MockUser(me.UserId, me.Username, me.Username)
-            : new MockUser(full.UserId, full.DisplayName, full.Username, IsAi: false, Bio: full.Bio);
+            : new MockUser(full.UserId, full.DisplayName, full.Username, IsAi: false, Bio: full.Bio, AvatarUrl: full.AvatarUrl, Version: full.Version);
+    }
+
+    public void UpdateCurrentUser(MockUser user)
+    {
+        _currentUser = user;
+        AuthStateChanged?.Invoke();
     }
 
     private async Task<T?> SendAuthorizedJsonAsync<T>(HttpMethod method, string url, CancellationToken ct)
